@@ -36,7 +36,7 @@ jobs:
           "
 
       - name: Expo prebuild
-        run: npx expo prebuild --clean --no-install
+        run: npx expo prebuild --platform android --clean --no-install
 
       - name: ULTIMATE FORCE Fix API 36 + Inject AdMob ID
         run: |
@@ -50,7 +50,6 @@ jobs:
               t = re.sub(r'compileSdkVersion\s*=?\s*34', 'compileSdkVersion = 36', t)
               t = re.sub(r'targetSdkVersion\s*=?\s*34', 'targetSdkVersion = 36', t)
               p.write_text(t)
-          # Inject AdMob App ID manually - no need plugin
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
