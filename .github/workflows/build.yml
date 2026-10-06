@@ -24,15 +24,16 @@ jobs:
           j.expo=j.expo||{};
           j.expo.name='風水佬Go';
           j.expo.slug='fungsui-go';
+          j.expo.version='1.0.0';
           j.expo.android=j.expo.android||{};
           j.expo.android.package='com.laptimego.fungsui';
-          j.expo.android.compileSdkVersion=36;
-          j.expo.android.targetSdkVersion=36;
-          j.expo.android.minSdkVersion=24;
           j.expo.android.versionCode=1;
-          j.expo.version='1.0.0';
+          j.expo.plugins=[
+            ['react-native-google-mobile-ads', { androidAppId: 'ca-app-pub-9890149028563226~8454882079' }],
+            ['expo-sensors']
+          ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log('patched to FungSui-Go v1 36');
+          console.log('patched with plugins fixed');
           "
 
       - name: Expo prebuild
