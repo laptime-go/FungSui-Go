@@ -3,12 +3,21 @@
     "name": "風水佬Go",
     "slug": "fungsui-go",
     "version": "1.0.0",
+    "orientation": "portrait",
     "android": {
       "package": "com.laptimego.fungsui",
       "versionCode": 1
     },
     "plugins": [
-      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079" }]
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9890149028563226~8454882079"
+        }
+      ],
+      [
+        "expo-sensors"
+      ]
     ]
   }
 }
