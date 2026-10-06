@@ -14,9 +14,11 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
 
       - name: Install deps
-        run: npm install
+        run: |
+          rm -rf node_modules android ios
+          npm install
 
-      - name: Force app.json to FungSui-Go v1 API36
+      - name: Force app.json WITHOUT ads plugin (fix typeof)
         run: |
           node -e "
           const fs=require('fs');
@@ -28,18 +30,15 @@ jobs:
           j.expo.android=j.expo.android||{};
           j.expo.android.package='com.laptimego.fungsui';
           j.expo.android.versionCode=1;
-          j.expo.plugins=[
-            ['react-native-google-mobile-ads', { androidAppId: 'ca-app-pub-9890149028563226~8454882079' }],
-            ['expo-sensors']
-          ];
+          j.expo.plugins=[['expo-sensors']];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log('patched with plugins fixed');
+          console.log('patched WITHOUT ads plugin');
           "
 
       - name: Expo prebuild
-        run: npx expo prebuild --clean
+        run: npx expo prebuild --clean --no-install
 
-      - name: ULTIMATE FORCE Fix API 36
+      - name: ULTIMATE FORCE Fix API 36 + Inject AdMob ID
         run: |
           python3 - << 'PY'
           import pathlib, re
@@ -51,6 +50,13 @@ jobs:
               t = re.sub(r'compileSdkVersion\s*=?\s*34', 'compileSdkVersion = 36', t)
               t = re.sub(r'targetSdkVersion\s*=?\s*34', 'targetSdkVersion = 36', t)
               p.write_text(t)
+          # Inject AdMob App ID manually - no need plugin
+          mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          xml = mf.read_text()
+          if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
+              xml = xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+              mf.write_text(xml)
+              print("Injected AdMob ID ca-app-pub-9890149028563226~8454882079")
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
