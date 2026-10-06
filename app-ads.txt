@@ -1,2 +1,0 @@
-# 呢個File唔係放呢度，係放 laptime-go.github.io 個repo入面
-# 到時我幫你加一行就得
