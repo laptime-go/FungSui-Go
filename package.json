@@ -2,7 +2,7 @@
   "dependencies": {
     "expo": "~51.0.8",
     "expo-sensors": "~12.9.0",
-    "react-native-google-mobile-ads": "^13.4.0",
+    "react-native-google-mobile-ads": "12.4.0",
     "react": "18.2.0",
     "react-native": "0.74.5"
   }
