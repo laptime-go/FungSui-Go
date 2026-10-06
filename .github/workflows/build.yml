@@ -38,7 +38,7 @@ jobs:
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: ULTIMATE FORCE Fix API 36 + Inject AdMob ID
+      - name: ULTIMATE FORCE Fix API 36 + Inject AdMob ID + Fix release property
         run: |
           python3 - << 'PY'
           import pathlib, re
@@ -50,17 +50,28 @@ jobs:
               t = re.sub(r'compileSdkVersion\s*=?\s*34', 'compileSdkVersion = 36', t)
               t = re.sub(r'targetSdkVersion\s*=?\s*34', 'targetSdkVersion = 36', t)
               p.write_text(t)
+
+          # FIX: Could not get unknown property 'release'
+          app_gradle = pathlib.Path("android/app/build.gradle")
+          s = app_gradle.read_text()
+          # 刪走 Expo 自動加嘅 publishing / components.release 會爆嘅段
+          s = re.sub(r'publishing\s*\{.*?\}\s*\n', '', s, flags=re.DOTALL)
+          s = re.sub(r'components\.release.*\n', '', s)
+          # 加返 AGP8 需要嘅 singleVariant
+          if 'singleVariant' not in s:
+              s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
+          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
+          s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
+          app_gradle.write_text(s)
+          print("Fixed release property + API36")
+
+          # Inject AdMob
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml = xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-              print("Injected AdMob ID ca-app-pub-9890149028563226~8454882079")
-          ap = pathlib.Path("android/app/build.gradle")
-          s = ap.read_text()
-          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
-          s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
-          ap.write_text(s)
+              print("Injected AdMob ID")
           PY
 
       - name: Use Permanent Keystore 40:0C:73 lapgo
