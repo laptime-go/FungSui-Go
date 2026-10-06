@@ -42,36 +42,41 @@ jobs:
         run: |
           python3 - << 'PY'
           import pathlib, re
-          for p in pathlib.Path("android").rglob("*.gradle"):
+          # 1. FIX 你的圖 76行 ':expo' release - 要掃成個repo，包括 node_modules
+          for p in pathlib.Path(".").rglob("build.gradle"):
+            try:
               t = p.read_text()
+              orig = t
               t = t.replace('rootProject.ext.compileSdkVersion', '36')
               t = t.replace('rootProject.ext.targetSdkVersion', '36')
               t = t.replace('rootProject.ext.minSdkVersion', '24')
               t = re.sub(r'compileSdkVersion\s*=?\s*34', 'compileSdkVersion = 36', t)
               t = re.sub(r'targetSdkVersion\s*=?\s*34', 'targetSdkVersion = 36', t)
-              p.write_text(t)
+              # 核心fix: :expo 嗰個錯
+              t = t.replace('components.release', 'components.findByName("release")')
+              t = t.replace('from components', 'from components.findByName')
+              if t != orig:
+                p.write_text(t)
+                print(f"Patched {p}")
+            except: pass
 
-          # FIX: Could not get unknown property 'release'
+          # 2. app/build.gradle 加 singleVariant
           app_gradle = pathlib.Path("android/app/build.gradle")
           s = app_gradle.read_text()
-          # 刪走 Expo 自動加嘅 publishing / components.release 會爆嘅段
-          s = re.sub(r'publishing\s*\{.*?\}\s*\n', '', s, flags=re.DOTALL)
-          s = re.sub(r'components\.release.*\n', '', s)
-          # 加返 AGP8 需要嘅 singleVariant
           if 'singleVariant' not in s:
-              s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
+            s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
           s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
           app_gradle.write_text(s)
           print("Fixed release property + API36")
 
-          # Inject AdMob
+          # 3. Inject AdMob
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
-              xml = xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
-              mf.write_text(xml)
-              print("Injected AdMob ID")
+            xml = xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+            mf.write_text(xml)
+            print("Injected AdMob ID")
           PY
 
       - name: Use Permanent Keystore 40:0C:73 lapgo
