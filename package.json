@@ -1,4 +1,10 @@
 {
+  "name": "fungsui-go",
+  "version": "1.0.0",
+  "main": "App.js",
+  "scripts": {
+    "start": "expo start"
+  },
   "dependencies": {
     "expo": "~51.0.28",
     "expo-sensors": "~12.9.0",
