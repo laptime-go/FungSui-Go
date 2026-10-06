@@ -1,10 +1,10 @@
 import React, {useState, useEffect} from 'react';
 import {StyleSheet, Text, View, TouchableOpacity} from 'react-native';
 import { Magnetometer } from 'expo-sensors';
-import { BannerAd, BannerAdSize, TestIds, InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize, InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 
 const adUnitId = "ca-app-pub-9890149028563226/7565306387";
-const interstitialId = "ca-app-pub-9890149028563226/7565306387";
+const interstitialId = "ca-app-pub-9890149028563226/5859110495";
 const interstitial = InterstitialAd.createForAdRequest(interstitialId);
 
 export default function App() {
@@ -24,7 +24,7 @@ export default function App() {
       <Text style={styles.title}>風水佬Go - {Math.round(heading)}°</Text>
       <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}><Text style={styles.n}>▲北 壬子癸</Text></View>
       <Text style={styles.result}>{heading>120&&heading<150?'財位💰':'吉位轉下'}</Text>
-      <TouchableOpacity style={styles.btn} onPress={()=>loaded&&interstitial.show()}><Text style={styles.btnText}>解鎖吉位</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.btn} onPress={()=>loaded&&interstitial.show()}><Text style={styles.btnText}>解鎖吉位 {loaded?'':'載入中'}</Text></TouchableOpacity>
       <View style={styles.ad}><BannerAd unitId={adUnitId} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} /></View>
     </View>
   );
