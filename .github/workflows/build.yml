@@ -6,6 +6,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,7 +18,7 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE
+      - name: Force Expo 52 STONE SDK36 + iosAppId
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
@@ -25,7 +27,7 @@ jobs:
           pkg.dependencies["expo"]="~52.0.46";
           pkg.dependencies["expo-sensors"]="~14.0.2";
           pkg.dependencies["expo-build-properties"]="~0.13.2";
-          pkg.dependencies["react-native-google-mobile-ads"]="14.7.0";
+          pkg.dependencies["react-native-google-mobile-ads"]="15.3.0";
           pkg.dependencies["react"]="18.3.1";
           pkg.dependencies["react-native"]="0.76.9";
           fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
@@ -36,10 +38,14 @@ jobs:
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
+          // 重點: 加埋 iosAppId，唔係你張圖 13-16 行會當 warning 炸
           j.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.24",packagingOptions:{pickFirst:["**/libc++_shared.so","**/libfbjni.so"]}},ios:{}}],
-            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"2.0.21"}}],
+            ["react-native-google-mobile-ads", {
+              androidAppId:"ca-app-pub-9890149028563226~8454882079",
+              iosAppId:"ca-app-pub-9890149028563226~8454882079"
+            }]
           ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           const g=`{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
@@ -50,10 +56,11 @@ jobs:
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
+        env: { NODE_ENV: production }
 
-      - name: Restore + NUCLEAR FIX STONE 40:0C:73
+      - name: Restore + FIX SDK36
         run: |
-          npm install react-native-google-mobile-ads@14.7.0 --legacy-peer-deps --no-save
+          npm install react-native-google-mobile-ads@15.3.0 --legacy-peer-deps --no-save
           python3 - << 'PY'
           import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
@@ -73,22 +80,11 @@ jobs:
                       p.write_text(s)
               except: pass
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text()
-          txt=txt.replace("36.0.0MYAPP","36.0.0\nMYAPP")
-          # 關 newArch + 加 memory，先唔會 compileReleaseKotlin OOM
-          if "newArchEnabled" not in txt:
-              txt+="\nnewArchEnabled=false\n"
-          else:
-              txt=re.sub(r'newArchEnabled.*', 'newArchEnabled=false', txt)
+          txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
+          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=2.0.21', txt)
           if "suppressUnsupportedCompileSdk" not in txt:
-              txt+="\nandroid.suppressUnsupportedCompileSdk=36\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonTransitiveRClass=false\n"
-          gp.write_text(txt)
-          bg=pathlib.Path("android/build.gradle")
-          bgt=bg.read_text()
-          bgt=bgt.replace("1.9.22","1.9.24").replace("1.9.23","1.9.24")
-          if "kotlinVersion" not in bgt:
-              bgt=bgt.replace("ext {", 'ext {\n        kotlinVersion = "1.9.24"\n')
-          bg.write_text(bgt)
+              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=2.0.21\n"
+          gp.write_text(txt.replace("1.9.22","2.0.21").replace("1.9.24","2.0.21"))
           PY
 
       - name: Keystore STONE 40:0C:73
@@ -110,19 +106,18 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
           } >> android/gradle.properties
 
-      - name: Build AAB+APK
+      - name: Build AAB+APK SDK36
         run: |
           cd android
           chmod +x gradlew
-          # 先試 compile Kotlin 睇真兇
-          ./gradlew :app:compileReleaseKotlin --stacktrace --info | tail -n 200
-          ./gradlew bundleRelease assembleRelease --stacktrace --no-daemon -x lintVitalAnalyzeRelease
+          NODE_ENV=production ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
+        env: { NODE_ENV: production }
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go STONE 40:0C:73 v1
+          name: FungSui-Go STONE 40:0C:73 SDK36
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
