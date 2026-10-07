@@ -14,9 +14,11 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
 
       - name: Install deps
-        run: npm install
+        run: |
+          npm install
+          npm install expo-sensors || true
 
-      - name: Force app.json
+      - name: Patch app.json safely
         run: |
           node -e "
           const fs=require('fs');
@@ -25,85 +27,61 @@ jobs:
           j.expo.name='風水佬Go';
           j.expo.slug='fungsui-go';
           j.expo.version='1.0.0';
-          j.expo.orientation='portrait';
-          j.expo.icon='./icon.jpg';
-          j.expo.splash={backgroundColor:'#000000', resizeMode:'contain', image:'./icon.jpg'};
-          j.expo.ios={bundleIdentifier:'com.laptimego.fungsui'};
-          j.expo.android={package:'com.laptimego.fungsui', compileSdkVersion:36, targetSdkVersion:36, minSdkVersion:24, versionCode:1, adaptiveIcon:{foregroundImage:'./icon.jpg', backgroundColor:'#000000'}};
-          j.expo.plugins=[['expo-sensors']];
+          j.expo.orientation=j.expo.orientation||'portrait';
+          // 唔強制 icon，用原本
+          j.expo.ios=j.expo.ios||{};
+          j.expo.ios.bundleIdentifier='com.laptimego.fungsui';
+          j.expo.android=j.expo.android||{};
+          j.expo.android.package='com.laptimego.fungsui';
+          j.expo.android.compileSdkVersion=36;
+          j.expo.android.targetSdkVersion=36;
+          j.expo.android.minSdkVersion=24;
+          j.expo.android.versionCode=1;
+          if(!j.expo.plugins) j.expo.plugins=[];
+          // 確保 expo-sensors 存在
+          if(!JSON.stringify(j.expo.plugins).includes('expo-sensors')) j.expo.plugins.push('expo-sensors');
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
+          console.log(fs.readFileSync('app.json','utf8'));
           "
 
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
 
-      - name: FIX SDK36 + NUKE publishing - FINAL
+      - name: FIX SDK36 only - minimal
         run: |
           python3 - << 'PY'
           import pathlib, re
+          # 1. Fix android/build.gradle - 只改數字
+          p=pathlib.Path("android/build.gradle")
+          t=p.read_text()
+          t=re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', t)
+          t=re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36', t)
+          t=re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', t)
+          t=re.sub(r'buildToolsVersion\s*=\s*"[^"]+"', 'buildToolsVersion = "36.0.0"', t)
+          t=re.sub(r'buildToolsVersion\s*=\s*[^\n]+', 'buildToolsVersion = "36.0.0"', t, count=1)
+          # 處理 safeExtGet
+          t=re.sub(r'compileSdkVersion\s*=\s*safeExtGet\([^)]+\)', 'compileSdkVersion = 36', t)
+          t=re.sub(r'targetSdkVersion\s*=\s*safeExtGet\([^)]+\)', 'targetSdkVersion = 36', t)
+          p.write_text(t)
+          print("fixed android/build.gradle")
 
-          # 1. 強制重寫 android/build.gradle 的 ext，唔理佢原本咩寫法
-          bg = pathlib.Path("android/build.gradle")
-          text = bg.read_text()
-          # 清掉舊 ext block 再插入新嘅
-          new_ext = '''
-          buildscript {
-            ext {
-              buildToolsVersion = "36.0.0"
-              minSdkVersion = 24
-              compileSdkVersion = 36
-              targetSdkVersion = 36
-              ndkVersion = "26.1.10909125"
-              kotlinVersion = "1.9.25"
-            }
-          }
-          '''
-          # 如果已有 buildscript ext，用 regex 換入面 5 個值
-          if 'ext {' in text:
-              text = re.sub(r'buildToolsVersion\s*=\s*[^\n]+', 'buildToolsVersion = "36.0.0"', text)
-              text = re.sub(r'minSdkVersion\s*=\s*[^\n]+', 'minSdkVersion = 24', text)
-              text = re.sub(r'compileSdkVersion\s*=\s*[^\n]+', 'compileSdkVersion = 36', text)
-              text = re.sub(r'targetSdkVersion\s*=\s*[^\n]+', 'targetSdkVersion = 36', text)
-              # 如果係 safeExtGet 寫法，額外再補
-              text = re.sub(r'safeExtGet\(.*compileSdkVersion.*\)', '36', text)
-              text = re.sub(r'rootProject\.ext\.compileSdkVersion', '36', text)
-          else:
-              text = new_ext + "\n" + text
-          # 喺最頂再加多一行確保 rootProject.ext 有值
-          if 'rootProject.ext.set' not in text:
-              text = 'rootProject.ext { compileSdkVersion = 36; targetSdkVersion = 36; minSdkVersion = 24; buildToolsVersion = "36.0.0" }\n' + text
-          bg.write_text(text)
-          print("FIXED android/build.gradle")
-
-          # 2. 將所有 android 相關 build.gradle 的 compileSdkVersion 硬改 36
-          for p in list(pathlib.Path("android").rglob("build.gradle")) + list(pathlib.Path("node_modules/expo").rglob("build.gradle")) + list(pathlib.Path("node_modules/expo-modules-core").rglob("build.gradle")):
-              try:
-                  t = p.read_text()
-                  orig = t
-                  # 任何 compileSdkVersion 寫法都改 36
-                  t = re.sub(r'compileSdkVersion\s+[^ \n]+', 'compileSdkVersion 36', t)
-                  t = re.sub(r'compileSdkVersion\s*=\s*[^ \n]+', 'compileSdkVersion = 36', t)
-                  t = re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', t)
-                  # Nuke publishing
-                  if 'from components.release' in t:
-                      t = t.replace('from components.release', '// FIXED')
-                  if orig != t:
-                      p.write_text(t)
-                      print(f"Patched {p}")
-              except Exception as e:
-                  print(f"skip {p} {e}")
-
-          # 3. app/build.gradle 保險
-          ap = pathlib.Path("android/app/build.gradle")
-          s = ap.read_text()
-          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
+          # 2. Fix android/app/build.gradle - 硬寫 36, 但唔刪 publishing 過度
+          ap=pathlib.Path("android/app/build.gradle")
+          s=ap.read_text()
+          s=re.sub(r'compileSdkVersion[^\n]*', 'compileSdkVersion 36', s)
+          s=re.sub(r'targetSdkVersion[^\n]*', 'targetSdkVersion 36', s)
+          s=re.sub(r'minSdkVersion[^\n]*', 'minSdkVersion 24', s)
+          s=re.sub(r'versionCode \d+', 'versionCode 1', s)
           if 'singleVariant' not in s:
-              s = s.replace('android {', 'android {\n publishing { singleVariant("release") }')
+              s=s.replace('android {', 'android {\n publishing { singleVariant("release") }')
+          # 只 nuke from components.release
+          s=s.replace('from components.release', '// from components.release')
           ap.write_text(s)
+          print("fixed app/build.gradle")
 
-          # AdMob
-          mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          xml = mf.read_text()
+          # 3. AdMob
+          mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               mf.write_text(xml.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>'))
           PY
@@ -133,7 +111,7 @@ jobs:
           chmod +x gradlew
           export KS_PASS="${{ secrets.KEYSTONE_PASSWORD }}"
           export KS_ALIAS="${{ secrets.KEYSTONE_ALIAS }}"
-          ./gradlew bundleRelease assembleRelease --no-daemon
+         ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
 
       - name: Upload AAB+APK to Release
         if: always()
