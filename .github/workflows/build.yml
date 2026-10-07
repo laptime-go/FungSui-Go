@@ -18,29 +18,38 @@ jobs:
         run: |
           npm install
           npm install expo-build-properties
-      - name: FORCE FIX app.json (auto)
+      - name: FORCE FIX app.json - NO AdMob plugin
         run: |
           node -e "
           const fs=require('fs');
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
-          j.expo=j.expo||{};
-          j.expo.android=j.expo.android||{};
+          j.expo.plugins=[
+            'expo-sensors',
+            ['expo-build-properties', {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:'36.0.0'}}]
+          ];
           j.expo.android.package='com.laptimego.fungsui';
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
-          j.expo.android.minSdkVersion=24;
-          j.expo.plugins=[
-            'expo-sensors',
-            ['react-native-google-mobile-ads', {android_app_id:'ca-app-pub-9890149028563226~8454882079'}],
-            ['expo-build-properties', {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:'36.0.0'}}]
-          ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log('FIXED app.json:', JSON.stringify(j.expo.plugins));
+          console.log('plugins fixed to:', j.expo.plugins);
           "
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: Fix publishing
-        run: python3 -c "import pathlib; p=pathlib.Path('android/app/build.gradle'); s=p.read_text(); s=s.replace('from components.release','// from components.release'); p.write_text(s)"
+      - name: Inject AdMob ID manually + Fix publishing
+        run: |
+          python3 - << 'PY'
+          import pathlib
+          mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          xml=mf.read_text()
+          if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
+              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+              mf.write_text(xml)
+              print("AdMob ID injected")
+          p=pathlib.Path("android/app/build.gradle")
+          s=p.read_text()
+          s=s.replace('from components.release','// from components.release')
+          p.write_text(s)
+          PY
       - name: Keystore 40:0C:73
         run: |
           mkdir -p android/app
