@@ -111,7 +111,7 @@ jobs:
           chmod +x gradlew
           export KS_PASS="${{ secrets.KEYSTONE_PASSWORD }}"
           export KS_ALIAS="${{ secrets.KEYSTONE_ALIAS }}"
-         ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
 
       - name: Upload AAB+APK to Release
         if: always()
