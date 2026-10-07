@@ -43,12 +43,10 @@ jobs:
           import pathlib, re
 
           def nuke_publishing(text):
-              # 搵到 afterEvaluate 就成個括號成舊刪
               while True:
                   m = re.search(r'afterEvaluate\s*\{', text)
                   if not m: break
                   start = m.start()
-                  # 計括號
                   depth = 0
                   end = -1
                   for i in range(m.end()-1, len(text)):
@@ -62,7 +60,6 @@ jobs:
                       text = text[:start] + '// NUKED afterEvaluate-publishing\n' + text[end+1:]
                   else:
                       break
-              # 再清淨 publishing 單獨出現
               text = re.sub(r'publishing\s*\{[^\}]*from\s+components\.release[^\}]*\}[^\}]*\}', '// NUKED publishing', text, flags=re.DOTALL)
               text = text.replace('from components.release', '// NUKED from components.release')
               text = text.replace('components.release', '// NUKED')
@@ -79,7 +76,6 @@ jobs:
                           p.write_text(new)
                           print(f"NUKED {p}")
                           count+=1
-                  # 強制 36
                   if 'rootProject.ext.compileSdkVersion' in t or 'compileSdkVersion 34' in t:
                       nt = p.read_text()
                       nt = nt.replace('rootProject.ext.compileSdkVersion','36').replace('rootProject.ext.targetSdkVersion','36').replace('rootProject.ext.minSdkVersion','24')
@@ -89,7 +85,6 @@ jobs:
 
           print(f"Total nuked {count} files")
 
-          # 加 singleVariant 保險
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
@@ -97,7 +92,6 @@ jobs:
               s = s.replace('android {', 'android {\n publishing { singleVariant("release") }')
           ap.write_text(s)
 
-          # AdMob
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
@@ -141,7 +135,9 @@ jobs:
           pathlib.Path("app/build.gradle").write_text(p)
           PY
           chmod +x gradlew
-          KS_PASS=${{ secrets.KEYSTONE_PASSWORD }} KS_ALIAS=${{ secrets.KEYSTONE_ALIAS }}./gradlew bundleRelease assembleRelease --no-daemon
+          export KS_PASS="${{ secrets.KEYSTONE_PASSWORD }}"
+          export KS_ALIAS="${{ secrets.KEYSTONE_ALIAS }}"
+         ./gradlew bundleRelease assembleRelease --no-daemon
 
       - name: Upload AAB+APK to Release
         if: always()
