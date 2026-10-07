@@ -16,19 +16,32 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Clean install - STONE
+      - name: Force Expo 52 STONE - Fix 0.22.28 old cli
         run: |
-          rm -rf node_modules android
+          rm -rf node_modules android package-lock.json
+          cat package.json
+          # 強制寫入 Expo 52 + 12.4.0 最穩組合
+          node - << 'JS'
+          const fs=require('fs');
+          let pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          pkg.dependencies["expo"]="~52.0.46";
+          pkg.dependencies["expo-sensors"]="~14.0.2";
+          pkg.dependencies["expo-build-properties"]="~0.13.2";
+          pkg.dependencies["react-native-google-mobile-ads"]="12.4.0";
+          pkg.dependencies["react"]="18.3.1";
+          pkg.dependencies["react-native"]="0.76.7";
+          fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
+          console.log("forced package.json to Expo 52");
+          JS
           npm install
+          npx expo --version
 
-      - name: AUTO FIX app.json + dummy gservices - STONE
+      - name: AUTO FIX app.json - STONE
         run: |
           node - << 'JS'
           const fs=require('fs');
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
-          // 刪走會令 prebuild 38s 死的 field
-          if(j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
-          // 保證 plugins 正確
+          if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
           j.expo.plugins=[
             "expo-sensors",
             ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0"}}],
@@ -37,18 +50,14 @@ jobs:
           j.expo.android.package="com.laptimego.fungsui";
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
+          j.expo.android.minSdkVersion=24;
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          // 起 dummy google-services.json 防止 plugin 炸
-          if(!fs.existsSync('google-services.json')){
-            fs.writeFileSync('google-services.json', '{}');
-          }
+          fs.writeFileSync('google-services.json', '{}');
           console.log("app.json fixed");
           JS
 
       - name: Expo prebuild clean
-        run: |
-          npx expo --version
-          npx expo prebuild --platform android --clean --no-install --verbose
+        run: npx expo prebuild --platform android --clean --no-install
 
       - name: NUCLEAR FIX - STONE 40:0C:73 + AdMob 8454882079
         run: |
@@ -60,7 +69,6 @@ jobs:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
               print("AdMob injected")
-
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -79,7 +87,6 @@ jobs:
                       p.write_text(s)
                       print(f"FIXED {p}")
               except: pass
-
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text()
           txt=txt.replace("36.0.0MYAPP","36.0.0\nMYAPP")
