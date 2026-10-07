@@ -57,7 +57,7 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
         env: { NODE_ENV: production }
 
-      - name: HOTFIX - 刪 dummy gservices 一開唔死
+      - name: HOTFIX - SDK36 一開唔死 + 刪 dummy gservices
         run: |
           npm install react-native-google-mobile-ads@15.3.0 --legacy-peer-deps --no-save
           rm -f google-services.json android/app/google-services.json
@@ -65,9 +65,14 @@ jobs:
           import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
+          # 保證有 APPLICATION_ID
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
-              mf.write_text(xml)
+          # 延遲初始化，醫不斷停止運作
+          if "DELAY_APP_MEASUREMENT_INIT" not in xml:
+              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.DELAY_APP_MEASUREMENT_INIT" android:value="true"/>\n  </application>')
+          mf.write_text(xml)
+          # 修 components.release
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -79,6 +84,7 @@ jobs:
                   if s!=orig:
                       p.write_text(s)
               except: pass
+          # 刪 google-services plugin，否則假 json 會閃退
           for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
               if fp.exists():
                   t=fp.read_text()
@@ -112,7 +118,7 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
           } >> android/gradle.properties
 
-      - name: Build AAB+APK SDK36 versionCode 1
+      - name: Build AAB+APK SDK36 v1 FULL-ADS FIX-CRASH
         run: |
           cd android
           chmod +x gradlew
@@ -123,7 +129,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go STONE 40:0C:73 SDK36 v1
+          name: FungSui-Go STONE 40:0C:73 SDK36 v1 FIX-CRASH
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
