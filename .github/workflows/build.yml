@@ -37,50 +37,63 @@ jobs:
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
 
-      - name: NUKE release bug + FIX compileSdkVersion
+      - name: FIX SDK36 + NUKE publishing - FINAL
         run: |
           python3 - << 'PY'
           import pathlib, re
-          def nuke_publishing(text):
-              while True:
-                  m = re.search(r'afterEvaluate\s*\{', text)
-                  if not m: break
-                  start = m.start()
-                  depth=0; end=-1
-                  for i in range(m.end()-1, len(text)):
-                      if text[i]=='{': depth+=1
-                      elif text[i]=='}':
-                          depth-=1
-                          if depth==0:
-                              end=i; break
-                  if end!=-1:
-                      text=text[:start]+'// NUKED afterEvaluate\n'+text[end+1:]
-                  else: break
-              text=re.sub(r'publishing\s*\{[^\}]*from\s+components\.release[^\}]*\}[^\}]*\}', '// NUKED publishing', text, flags=re.DOTALL)
-              text=text.replace('from components.release','// NUKED from components.release')
-              return text
 
-          nuked=0
-          for p in pathlib.Path(".").rglob("*.gradle"):
-              if ".git" in str(p): continue
-              try:
-                  t=p.read_text()
-                  if 'components.release' in t:
-                      nt=nuke_publishing(t)
-                      if nt!=t:
-                          p.write_text(nt)
-                          nuked+=1
-              except: pass
-          print(f"NUKED {nuked}")
-
-          # FIX ext - 唔再 replace rootProject.ext 字串
+          # 1. 強制重寫 android/build.gradle 的 ext，唔理佢原本咩寫法
           bg = pathlib.Path("android/build.gradle")
-          s = bg.read_text()
-          s = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36', s)
-          s = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', s)
-          s = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', s)
-          bg.write_text(s)
+          text = bg.read_text()
+          # 清掉舊 ext block 再插入新嘅
+          new_ext = '''
+          buildscript {
+            ext {
+              buildToolsVersion = "36.0.0"
+              minSdkVersion = 24
+              compileSdkVersion = 36
+              targetSdkVersion = 36
+              ndkVersion = "26.1.10909125"
+              kotlinVersion = "1.9.25"
+            }
+          }
+          '''
+          # 如果已有 buildscript ext，用 regex 換入面 5 個值
+          if 'ext {' in text:
+              text = re.sub(r'buildToolsVersion\s*=\s*[^\n]+', 'buildToolsVersion = "36.0.0"', text)
+              text = re.sub(r'minSdkVersion\s*=\s*[^\n]+', 'minSdkVersion = 24', text)
+              text = re.sub(r'compileSdkVersion\s*=\s*[^\n]+', 'compileSdkVersion = 36', text)
+              text = re.sub(r'targetSdkVersion\s*=\s*[^\n]+', 'targetSdkVersion = 36', text)
+              # 如果係 safeExtGet 寫法，額外再補
+              text = re.sub(r'safeExtGet\(.*compileSdkVersion.*\)', '36', text)
+              text = re.sub(r'rootProject\.ext\.compileSdkVersion', '36', text)
+          else:
+              text = new_ext + "\n" + text
+          # 喺最頂再加多一行確保 rootProject.ext 有值
+          if 'rootProject.ext.set' not in text:
+              text = 'rootProject.ext { compileSdkVersion = 36; targetSdkVersion = 36; minSdkVersion = 24; buildToolsVersion = "36.0.0" }\n' + text
+          bg.write_text(text)
+          print("FIXED android/build.gradle")
 
+          # 2. 將所有 android 相關 build.gradle 的 compileSdkVersion 硬改 36
+          for p in list(pathlib.Path("android").rglob("build.gradle")) + list(pathlib.Path("node_modules/expo").rglob("build.gradle")) + list(pathlib.Path("node_modules/expo-modules-core").rglob("build.gradle")):
+              try:
+                  t = p.read_text()
+                  orig = t
+                  # 任何 compileSdkVersion 寫法都改 36
+                  t = re.sub(r'compileSdkVersion\s+[^ \n]+', 'compileSdkVersion 36', t)
+                  t = re.sub(r'compileSdkVersion\s*=\s*[^ \n]+', 'compileSdkVersion = 36', t)
+                  t = re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', t)
+                  # Nuke publishing
+                  if 'from components.release' in t:
+                      t = t.replace('from components.release', '// FIXED')
+                  if orig != t:
+                      p.write_text(t)
+                      print(f"Patched {p}")
+              except Exception as e:
+                  print(f"skip {p} {e}")
+
+          # 3. app/build.gradle 保險
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
@@ -88,6 +101,7 @@ jobs:
               s = s.replace('android {', 'android {\n publishing { singleVariant("release") }')
           ap.write_text(s)
 
+          # AdMob
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
@@ -116,18 +130,6 @@ jobs:
       - name: Build AAB + APK
         run: |
           cd android
-          python3 - << 'PY'
-          import pathlib, re
-          p=pathlib.Path("app/build.gradle").read_text()
-          new_block=""" signingConfigs {
-              debug { storeFile file('debug.keystore'); storePassword 'android'; keyAlias 'androiddebugkey'; keyPassword 'android' }
-              release { storeFile file('release.keystore'); storePassword System.getenv("KS_PASS")?: "123456"; keyAlias System.getenv("KS_ALIAS")?: "lapgo"; keyPassword System.getenv("KS_PASS")?: "123456" }
-          }
-          """
-          p=re.sub(r'signingConfigs\s*\{.*?^\s*\}\s*\n\s*buildTypes', new_block+'\nbuildTypes', p, flags=re.MULTILINE|re.DOTALL)
-          p=p.replace('signingConfig signingConfigs.debug','signingConfig signingConfigs.release')
-          pathlib.Path("app/build.gradle").write_text(p)
-          PY
           chmod +x gradlew
           export KS_PASS="${{ secrets.KEYSTONE_PASSWORD }}"
           export KS_ALIAS="${{ secrets.KEYSTONE_ALIAS }}"
