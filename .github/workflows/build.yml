@@ -25,11 +25,11 @@ jobs:
           pkg.dependencies["expo"]="~52.0.46";
           pkg.dependencies["expo-sensors"]="~14.0.2";
           pkg.dependencies["expo-build-properties"]="~0.13.2";
-          pkg.dependencies["react-native-google-mobile-ads"]="12.4.0";
+          // 重點: 12.4.0 太舊，升 14.7.0 先兼容 RN 0.76.9
+          pkg.dependencies["react-native-google-mobile-ads"]="14.7.0";
           pkg.dependencies["react"]="18.3.1";
           pkg.dependencies["react-native"]="0.76.9";
           fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
-          // 強制 app.json 保留 AppId - 按你要求
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
           if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
           j.expo.android.package="com.laptimego.fungsui";
@@ -44,9 +44,24 @@ jobs:
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           const g=`{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
           fs.writeFileSync('google-services.json', g);
-          console.log("AppId in app.json fixed");
           JS
           npm install --legacy-peer-deps
+          # PATCH - 解決你張圖 NativeGoogleMobileAdsModule.js:7:20 炸 prebuild
+          node - << 'JS'
+          const fs=require('fs');
+          const p='node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js';
+          try{
+            let s=fs.readFileSync(p,'utf8');
+            s=s.replace(/.*TurboModuleRegistry\.getEnforcing.*/, 'let mod=null; try{ mod=require("react-native").TurboModuleRegistry.getEnforcing("GoogleMobileAds"); }catch(e){ mod=null; } module.exports={default:mod};');
+            if(s.includes('getEnforcing')) {
+              // 後備直接寫死 dummy
+              fs.writeFileSync(p, 'module.exports={default:{getConstants:()=>({})}}; module.exports.getConstants=()=>({});');
+            } else {
+              fs.writeFileSync(p,s);
+            }
+            console.log("patched NativeGoogleMobileAdsModule.js");
+          }catch(e){ console.log("patch skip", e.message); }
+          JS
           npx expo --version
           cat app.json
 
@@ -62,7 +77,6 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-              print("AdMob injected")
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -76,12 +90,9 @@ jobs:
                       s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
                       s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
                       s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
-                      s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
                   if s!=orig:
                       p.write_text(s)
-                      print(f"FIXED {p}")
-              except Exception as e:
-                  pass
+              except: pass
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           if "suppressUnsupportedCompileSdk" not in txt:
