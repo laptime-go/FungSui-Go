@@ -18,34 +18,6 @@ jobs:
         run: |
           npm install
           npm install expo-build-properties
-      - name: PATCH node_modules expo bug
-        run: |
-          python3 - << 'PY'
-          import pathlib, re
-          for p in pathlib.Path("node_modules").rglob("build.gradle"):
-            try:
-              s=p.read_text()
-              changed=False
-              if "components.release" in s:
-                s=s.replace("from components.release",'from components.findByName("release")').replace("components.release",'components.findByName("release")')
-                changed=True
-              # 硬核 fix compileSdkVersion is not specified
-              if "compileSdkVersion is not specified" in s or "safeExtGet(\"compileSdkVersion\"" in s:
-                s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
-                s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
-                s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
-                s=re.sub(r'safeExtGet\("buildToolsVersion".*?\)', '"36.0.0"', s)
-                s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
-                s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
-                s=re.sub(r'minSdkVersion\s+safeExtGet.*', 'minSdkVersion 24', s)
-                s=re.sub(r'buildToolsVersion\s+safeExtGet.*', 'buildToolsVersion "36.0.0"', s)
-                changed=True
-              if changed:
-                p.write_text(s)
-                print(f"hard patched {p}")
-            except Exception as e:
-              pass
-          PY
       - name: FIX app.json
         run: |
           node -e "
@@ -62,37 +34,50 @@ jobs:
           "
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: PATCH android + AdMob ID + Force SDK36 AGAIN
+
+      - name: PATCH ALL - release + compileSdk + AdMob - FINAL
         run: |
           python3 - << 'PY'
           import pathlib, re
-          # AdMob
+          # 1. AdMob ID ca-app-pub-9890149028563226~8454882079
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-          # 再 hard patch 一次 android 目錄入面 expo-sensors 生成出嚟的
+              print("AdMob injected")
+
+          def fix_file(p):
+              try:
+                  s=p.read_text(encoding='utf-8', errors='ignore')
+                  orig=s
+                  if "components.release" in s:
+                      s=s.replace("from components.release", 'from components.findByName("release")')
+                      s=s.replace("components.release", 'components.findByName("release")')
+                  # hard fix compileSdkVersion
+                  if "compileSdkVersion is not specified" in s or 'safeExtGet("compileSdkVersion"' in s:
+                      s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
+                      s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
+                      s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
+                      s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
+                      s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
+                  if s!=orig:
+                      p.write_text(s)
+                      print(f"patched {p}")
+              except: pass
+
+          # patch node_modules 裡面所有 expo module (包括 :expo)
+          for p in pathlib.Path("node_modules").rglob("build.gradle"):
+              fix_file(p)
+          # patch android 目錄生成出來的
           for p in pathlib.Path("android").rglob("build.gradle"):
-            try:
-              s=p.read_text()
-              if "components.release" in s:
-                s=s.replace("from components.release",'from components.findByName("release")').replace("components.release",'components.findByName("release")')
-              if "compileSdkVersion is not specified" in s or "safeExtGet(\"compileSdkVersion\"" in s:
-                s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
-                s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
-                s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
-              # 強制加 ext 保險
-              if p.name=="build.gradle" and "android/build.gradle" in str(p):
-                if "compileSdkVersion = 36" not in s:
-                  s="ext { compileSdkVersion = 36; targetSdkVersion = 36; minSdkVersion = 24; buildToolsVersion = \"36.0.0\" }\n"+s
-              p.write_text(s)
-            except: pass
-          # 修 gradle.properties 痴線問題
+              fix_file(p)
+
+          # 修 gradle.properties 痴埋問題
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
-          gp.write_text(txt)
+          gp.write_text(gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP"))
           PY
+
       - name: Keystore STONE 40:0C:73
         run: |
           mkdir -p android/app
@@ -112,7 +97,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
