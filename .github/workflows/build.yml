@@ -38,7 +38,7 @@ jobs:
           j.expo.android.minSdkVersion=24;
           j.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.24"}}],
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.24",packagingOptions:{pickFirst:["**/libc++_shared.so","**/libfbjni.so"]}},ios:{}}],
             ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
@@ -46,15 +46,13 @@ jobs:
           fs.writeFileSync('google-services.json', g);
           JS
           npm install --legacy-peer-deps
-          # 1. patch dummy 只為過 prebuild
           echo "module.exports={default:{getConstants:()=>({})}};" > node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Restore real AdMob + NUCLEAR FIX
+      - name: Restore + NUCLEAR FIX STONE 40:0C:73
         run: |
-          # 2. prebuild 過咗，restore 真檔，唔係 Kotlin 會炸
           npm install react-native-google-mobile-ads@14.7.0 --legacy-peer-deps --no-save
           python3 - << 'PY'
           import pathlib, re
@@ -63,7 +61,6 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-          # 修 components.release 同 kotlin version 衝突
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -72,17 +69,20 @@ jobs:
                       s=re.sub(r'publishing\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}\s*\}', ' ', s)
                       s=s.replace("from components.release", 'from components.findByName("release")')
                       s=s.replace("components.release", 'components.findByName("release")')
-                  if 'kotlinVersion' not in s and 'com.android.application' in s:
-                      s=s.replace("buildscript", 'buildscript { ext { kotlinVersion = "1.9.24" } }\nbuildscript')
                   if s!=orig:
                       p.write_text(s)
               except: pass
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
+          txt=gp.read_text()
+          txt=txt.replace("36.0.0MYAPP","36.0.0\nMYAPP")
+          # 關 newArch + 加 memory，先唔會 compileReleaseKotlin OOM
+          if "newArchEnabled" not in txt:
+              txt+="\nnewArchEnabled=false\n"
+          else:
+              txt=re.sub(r'newArchEnabled.*', 'newArchEnabled=false', txt)
           if "suppressUnsupportedCompileSdk" not in txt:
-              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nandroid.nonTransitiveRClass=false\n"
+              txt+="\nandroid.suppressUnsupportedCompileSdk=36\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonTransitiveRClass=false\n"
           gp.write_text(txt)
-          # 強制 android/build.gradle 用 1.9.24
           bg=pathlib.Path("android/build.gradle")
           bgt=bg.read_text()
           bgt=bgt.replace("1.9.22","1.9.24").replace("1.9.23","1.9.24")
@@ -114,6 +114,8 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
+          # 先試 compile Kotlin 睇真兇
+          ./gradlew :app:compileReleaseKotlin --stacktrace --info | tail -n 200
           ./gradlew bundleRelease assembleRelease --stacktrace --no-daemon -x lintVitalAnalyzeRelease
 
       - name: Upload Release
