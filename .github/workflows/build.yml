@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
 
@@ -21,18 +21,43 @@ jobs:
           rm -rf node_modules android
           npm install
 
+      - name: AUTO FIX app.json + dummy gservices - STONE
+        run: |
+          node - << 'JS'
+          const fs=require('fs');
+          let j=JSON.parse(fs.readFileSync('app.json','utf8'));
+          // 刪走會令 prebuild 38s 死的 field
+          if(j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
+          // 保證 plugins 正確
+          j.expo.plugins=[
+            "expo-sensors",
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0"}}],
+            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
+          ];
+          j.expo.android.package="com.laptimego.fungsui";
+          j.expo.android.compileSdkVersion=36;
+          j.expo.android.targetSdkVersion=36;
+          fs.writeFileSync('app.json', JSON.stringify(j,null,2));
+          // 起 dummy google-services.json 防止 plugin 炸
+          if(!fs.existsSync('google-services.json')){
+            fs.writeFileSync('google-services.json', '{}');
+          }
+          console.log("app.json fixed");
+          JS
+
       - name: Expo prebuild clean
-        run: npx expo prebuild --platform android --clean
+        run: |
+          npx expo --version
+          npx expo prebuild --platform android --clean --no-install --verbose
 
       - name: NUCLEAR FIX - STONE 40:0C:73 + AdMob 8454882079
         run: |
           python3 - << 'PY'
           import pathlib, re
-          # AdMob 注入 (plugin 已做，但再保險)
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
-              xml=xml.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
+              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
               print("AdMob injected")
 
@@ -41,13 +66,15 @@ jobs:
                   s=p.read_text(errors='ignore')
                   orig=s
                   if "components.release" in s:
-                      # 成段 publishing 刪走最穩
                       s=re.sub(r'publishing\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}\s*\}', ' ', s)
                       s=s.replace("from components.release", 'from components.findByName("release")')
                       s=s.replace("components.release", 'components.findByName("release")')
-                  if "compileSdkVersion is not specified" in s:
+                  if "compileSdkVersion is not specified" in s or 'safeExtGet("compileSdkVersion"' in s:
                       s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
                       s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
+                      s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
+                      s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
+                      s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
                   if s!=orig:
                       p.write_text(s)
                       print(f"FIXED {p}")
@@ -84,7 +111,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
