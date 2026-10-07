@@ -46,6 +46,23 @@ jobs:
         run: |
           python3 - << 'PY'
           import pathlib, re
+          # === 1. 先搞掂 app/build.gradle 個78行 crash，呢個係賽車冇，風水佬有嘅 ===
+          ap = pathlib.Path("android/app/build.gradle")
+          s = ap.read_text()
+          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
+          s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
+          # 成段 afterEvaluate publishing 刪走，唔係淨係改名，咁先唔會再有 Could not get unknown property 'release'
+          s = re.sub(r'afterEvaluate\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}\s*\}\s*\}', '', s)
+          s = s.replace('from components.release', 'from components.findByName("release")')
+          # 清理之前改壞咗嘅 findByName.findByName
+          s = s.replace('from components.findByName("release").findByName', 'from components.findByName("release")')
+          # AGP 8 必須要有 singleVariant
+          if 'singleVariant' not in s:
+              s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
+          ap.write_text(s)
+          print("fixed crash block")
+
+          # === 2. SDK 36 ===
           bg_path = pathlib.Path("android/build.gradle")
           if bg_path.exists():
               bg = bg_path.read_text()
@@ -53,32 +70,17 @@ jobs:
               bg = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', bg)
               bg = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', bg)
               bg_path.write_text(bg)
-          
-          ap = pathlib.Path("android/app/build.gradle")
-          s = ap.read_text()
-          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
-          s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
-          # fix components.release crash - 只改呢一句，唔好改 from components
-          if 'from components.release' in s:
-              s = s.replace('from components.release', 'from components.findByName("release")')
-          # 確保 singleVariant
-          if 'singleVariant' not in s:
-              s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
-          ap.write_text(s)
-          print("fixed app/build.gradle")
 
-          # Force SDK 36 for all modules
           for p in pathlib.Path("android").rglob("build.gradle"):
               try:
                   t = p.read_text()
-                  orig = t
-                  t = t.replace('compileSdkVersion 34', 'compileSdkVersion 36')
-                  t = t.replace('targetSdkVersion 34', 'targetSdkVersion 36')
-                  if t != orig:
+                  if 'compileSdkVersion 34' in t or 'targetSdkVersion 34' in t:
+                      t = t.replace('compileSdkVersion 34', 'compileSdkVersion 36')
+                      t = t.replace('targetSdkVersion 34', 'targetSdkVersion 36')
                       p.write_text(t)
               except: pass
 
-          # Inject AdMob
+          # === 3. AdMob ===
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
@@ -92,7 +94,7 @@ jobs:
           mkdir -p android/app
           echo "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/app/upload-keystore.jks
-          # 清理舊的 MYAPP_
+          cp android/app/release.keystore android/release.keystore
           sed -i '/MYAPP_RELEASE/d' android/gradle.properties || true
           sed -i '/MYAPP_UPLOAD/d' android/gradle.properties || true
           echo "MYAPP_RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
@@ -103,7 +105,6 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-          echo "MYAPP_RELEASE_STORE_FILE=release.keystore" 
           keytool -list -v -keystore android/app/release.keystore -alias ${{ secrets.KEYSTONE_ALIAS }} -storepass ${{ secrets.KEYSTONE_PASSWORD }} | grep -E "SHA1|Alias"
 
       - name: Build AAB + APK
