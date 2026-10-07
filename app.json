@@ -4,11 +4,12 @@
     "slug": "fungsui-go",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./icon.jpg",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#000000",
-      "resizeMode": "contain"
+      "resizeMode": "contain",
+      "image": "./icon.jpg"
     },
     "android": {
       "package": "com.laptimego.fungsui",
@@ -18,7 +19,7 @@
       "minSdkVersion": 24,
       "permissions": [],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./icon.jpg",
         "backgroundColor": "#000000"
       }
     },
