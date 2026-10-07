@@ -16,11 +16,9 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE - Fix 0.22.28 old cli
+      - name: Force Expo 52 STONE
         run: |
-          rm -rf node_modules android package-lock.json
-          cat package.json
-          # 強制寫入 Expo 52 + 12.4.0 最穩組合
+          rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
           const fs=require('fs');
           let pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
@@ -29,14 +27,13 @@ jobs:
           pkg.dependencies["expo-build-properties"]="~0.13.2";
           pkg.dependencies["react-native-google-mobile-ads"]="12.4.0";
           pkg.dependencies["react"]="18.3.1";
-          pkg.dependencies["react-native"]="0.76.7";
+          pkg.dependencies["react-native"]="0.76.9";
           fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
-          console.log("forced package.json to Expo 52");
           JS
-          npm install
+          npm install --legacy-peer-deps
           npx expo --version
 
-      - name: AUTO FIX app.json - STONE
+      - name: AUTO FIX app.json + valid gservices
         run: |
           node - << 'JS'
           const fs=require('fs');
@@ -52,8 +49,10 @@ jobs:
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          fs.writeFileSync('google-services.json', '{}');
-          console.log("app.json fixed");
+          // 合法 dummy gservices，唔會再令 NativeGoogleMobileAdsModule 炸
+          const g = `{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
+          fs.writeFileSync('google-services.json', g);
+          console.log("fixed");
           JS
 
       - name: Expo prebuild clean
@@ -68,7 +67,6 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-              print("AdMob injected")
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -85,11 +83,9 @@ jobs:
                       s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
                   if s!=orig:
                       p.write_text(s)
-                      print(f"FIXED {p}")
               except: pass
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text()
-          txt=txt.replace("36.0.0MYAPP","36.0.0\nMYAPP")
+          txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           if "suppressUnsupportedCompileSdk" not in txt:
               txt+="\nandroid.suppressUnsupportedCompileSdk=36\n"
           gp.write_text(txt)
@@ -118,7 +114,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
