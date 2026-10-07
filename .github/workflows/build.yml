@@ -41,7 +41,6 @@ jobs:
         run: |
           python3 - << 'PY'
           import pathlib, re
-
           def nuke_publishing(text):
               while True:
                   m = re.search(r'afterEvaluate\s*\{', text)
@@ -64,7 +63,6 @@ jobs:
               text = text.replace('from components.release', '// NUKED from components.release')
               text = text.replace('components.release', '// NUKED')
               return text
-
           count=0
           for p in pathlib.Path(".").rglob("*.gradle"):
               if ".git" in str(p): continue
@@ -82,16 +80,13 @@ jobs:
                       p.write_text(nt)
               except Exception as e:
                   print(f"skip {p} {e}")
-
           print(f"Total nuked {count} files")
-
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
           if 'singleVariant' not in s:
               s = s.replace('android {', 'android {\n publishing { singleVariant("release") }')
           ap.write_text(s)
-
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
@@ -144,7 +139,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go v1 API36 #${{ github.run_number }}
+          name: FungSui-Go v1 API36
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
