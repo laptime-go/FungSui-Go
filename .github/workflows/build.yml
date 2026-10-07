@@ -18,7 +18,7 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE SDK36 + iosAppId
+      - name: Force Expo 52 STONE SDK36 versionCode 1
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
@@ -34,11 +34,10 @@ jobs:
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
           if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
           j.expo.android.package="com.laptimego.fungsui";
-          j.expo.android.versionCode=2;
+          j.expo.android.versionCode=1;
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
-          // 重點: 加埋 iosAppId，唔係你張圖 13-16 行會當 warning 炸
           j.expo.plugins=[
             "expo-sensors",
             ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"2.0.21"}}],
@@ -58,9 +57,10 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
         env: { NODE_ENV: production }
 
-      - name: Restore + FIX SDK36
+      - name: HOTFIX - 刪 dummy gservices 一開唔死
         run: |
           npm install react-native-google-mobile-ads@15.3.0 --legacy-peer-deps --no-save
+          rm -f google-services.json android/app/google-services.json
           python3 - << 'PY'
           import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
@@ -79,6 +79,12 @@ jobs:
                   if s!=orig:
                       p.write_text(s)
               except: pass
+          for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
+              if fp.exists():
+                  t=fp.read_text()
+                  t=t.replace("apply plugin: 'com.google.gms.google-services'","// removed gms")
+                  t=t.replace('apply plugin: "com.google.gms.google-services"',"// removed gms")
+                  fp.write_text(t)
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=2.0.21', txt)
@@ -106,7 +112,7 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
           } >> android/gradle.properties
 
-      - name: Build AAB+APK SDK36
+      - name: Build AAB+APK SDK36 versionCode 1
         run: |
           cd android
           chmod +x gradlew
@@ -117,7 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go STONE 40:0C:73 SDK36
+          name: FungSui-Go STONE 40:0C:73 SDK36 v1
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
