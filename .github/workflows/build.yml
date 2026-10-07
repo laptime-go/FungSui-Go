@@ -21,15 +21,30 @@ jobs:
       - name: PATCH node_modules expo bug
         run: |
           python3 - << 'PY'
-          import pathlib
-          for p in pathlib.Path("node_modules").rglob("*.gradle"):
+          import pathlib, re
+          for p in pathlib.Path("node_modules").rglob("build.gradle"):
             try:
               s=p.read_text()
+              changed=False
               if "components.release" in s:
-                s=s.replace("from components.release",'from components.findByName("release")')
-                s=s.replace("components.release",'components.findByName("release")')
+                s=s.replace("from components.release",'from components.findByName("release")').replace("components.release",'components.findByName("release")')
+                changed=True
+              # 硬核 fix compileSdkVersion is not specified
+              if "compileSdkVersion is not specified" in s or "safeExtGet(\"compileSdkVersion\"" in s:
+                s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
+                s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
+                s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
+                s=re.sub(r'safeExtGet\("buildToolsVersion".*?\)', '"36.0.0"', s)
+                s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
+                s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
+                s=re.sub(r'minSdkVersion\s+safeExtGet.*', 'minSdkVersion 24', s)
+                s=re.sub(r'buildToolsVersion\s+safeExtGet.*', 'buildToolsVersion "36.0.0"', s)
+                changed=True
+              if changed:
                 p.write_text(s)
-            except: pass
+                print(f"hard patched {p}")
+            except Exception as e:
+              pass
           PY
       - name: FIX app.json
         run: |
@@ -47,50 +62,45 @@ jobs:
           "
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: PATCH android + AdMob ID + Force SDK36
+      - name: PATCH android + AdMob ID + Force SDK36 AGAIN
         run: |
           python3 - << 'PY'
-          import pathlib
-          # 1. AdMob ID ca-app-pub-9890149028563226~8454882079
+          import pathlib, re
+          # AdMob
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-              print("AdMob injected")
-          # 2. PATCH release bug in android
-          for p in pathlib.Path("android").rglob("*.gradle"):
-            s=p.read_text()
-            if "components.release" in s:
-              s=s.replace("from components.release",'from components.findByName("release")')
-              s=s.replace("components.release",'components.findByName("release")')
+          # 再 hard patch 一次 android 目錄入面 expo-sensors 生成出嚟的
+          for p in pathlib.Path("android").rglob("build.gradle"):
+            try:
+              s=p.read_text()
+              if "components.release" in s:
+                s=s.replace("from components.release",'from components.findByName("release")').replace("components.release",'components.findByName("release")')
+              if "compileSdkVersion is not specified" in s or "safeExtGet(\"compileSdkVersion\"" in s:
+                s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
+                s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
+                s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
+              # 強制加 ext 保險
+              if p.name=="build.gradle" and "android/build.gradle" in str(p):
+                if "compileSdkVersion = 36" not in s:
+                  s="ext { compileSdkVersion = 36; targetSdkVersion = 36; minSdkVersion = 24; buildToolsVersion = \"36.0.0\" }\n"+s
               p.write_text(s)
-          # 3. 關鍵修復：強制加 compileSdkVersion 入 android/build.gradle
-          bg=pathlib.Path("android/build.gradle")
-          s=bg.read_text()
-          if "compileSdkVersion = 36" not in s:
-              s = "buildscript { ext { compileSdkVersion = 36; targetSdkVersion = 36; minSdkVersion = 24; buildToolsVersion = \"36.0.0\"; kotlinVersion = \"1.9.22\" } }\n" + s
-              # 保險：allprojects都加
-              s = s.replace("allprojects {", "allprojects { ext { compileSdkVersion = 36; targetSdkVersion = 36 } ")
-              bg.write_text(s)
-              print("forced compileSdkVersion 36")
-          # 4. 修 gradle.properties 換行問題 36.0.0MYAPP
+            except: pass
+          # 修 gradle.properties 痴線問題
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text()
-          txt=txt.replace("36.0.0MYAPP","36.0.0\nMYAPP")
+          txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           gp.write_text(txt)
-          print("fixed gradle.properties")
           PY
       - name: Keystore STONE 40:0C:73
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
-          keytool -list -v -keystore android/app/release.keystore -alias ${{ secrets.KEYSTONE_ALIAS }} -storepass ${{ secrets.KEYSTONE_PASSWORD }} | grep SHA1
-      - name: Signing STONE - Fixed newline
+      - name: Signing STONE
         run: |
-          printf "\n" >> android/gradle.properties
-          printf "MYAPP_RELEASE_STORE_FILE=release.keystore\n" >> android/gradle.properties
+          printf "\nMYAPP_RELEASE_STORE_FILE=release.keystore\n" >> android/gradle.properties
           printf "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}\n" >> android/gradle.properties
           printf "MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}\n" >> android/gradle.properties
           printf "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}\n" >> android/gradle.properties
@@ -98,7 +108,6 @@ jobs:
           printf "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}\n" >> android/gradle.properties
           printf "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}\n" >> android/gradle.properties
           printf "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}\n" >> android/gradle.properties
-          tail -20 android/gradle.properties
       - name: Build AAB+APK
         run: |
           cd android
