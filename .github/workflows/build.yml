@@ -18,7 +18,7 @@ jobs:
           rm -rf node_modules android ios
           npm install
 
-      - name: Force app.json to 36 + v1 FungSui BEFORE prebuild
+      - name: Force app.json to 36 + v1 FungSui + ICON FIX
         run: |
           node -e "
           const fs=require('fs');
@@ -28,15 +28,21 @@ jobs:
           j.expo.slug='fungsui-go';
           j.expo.version='1.0.0';
           j.expo.orientation='portrait';
+          j.expo.icon='./icon.jpg';
+          j.expo.splash=j.expo.splash||{};
+          j.expo.splash.backgroundColor='#000000';
+          j.expo.splash.resizeMode='contain';
+          j.expo.splash.image='./icon.jpg';
           j.expo.android=j.expo.android||{};
           j.expo.android.package='com.laptimego.fungsui';
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
           j.expo.android.versionCode=1;
+          j.expo.android.adaptiveIcon={ foregroundImage: './icon.jpg', backgroundColor: '#000000' };
           j.expo.plugins=[['expo-sensors']];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log('patched FungSui to 36 v1');
+          console.log('patched FungSui to 36 v1 + icon.jpg');
           "
 
       - name: Expo prebuild
@@ -46,23 +52,17 @@ jobs:
         run: |
           python3 - << 'PY'
           import pathlib, re
-          # === 1. 先搞掂 app/build.gradle 個78行 crash，呢個係賽車冇，風水佬有嘅 ===
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
           s = re.sub(r'versionCode \d+', 'versionCode 1', s)
           s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
-          # 成段 afterEvaluate publishing 刪走，唔係淨係改名，咁先唔會再有 Could not get unknown property 'release'
           s = re.sub(r'afterEvaluate\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}\s*\}\s*\}', '', s)
           s = s.replace('from components.release', 'from components.findByName("release")')
-          # 清理之前改壞咗嘅 findByName.findByName
           s = s.replace('from components.findByName("release").findByName', 'from components.findByName("release")')
-          # AGP 8 必須要有 singleVariant
           if 'singleVariant' not in s:
               s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
           ap.write_text(s)
           print("fixed crash block")
-
-          # === 2. SDK 36 ===
           bg_path = pathlib.Path("android/build.gradle")
           if bg_path.exists():
               bg = bg_path.read_text()
@@ -70,7 +70,6 @@ jobs:
               bg = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', bg)
               bg = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', bg)
               bg_path.write_text(bg)
-
           for p in pathlib.Path("android").rglob("build.gradle"):
               try:
                   t = p.read_text()
@@ -79,8 +78,6 @@ jobs:
                       t = t.replace('targetSdkVersion 34', 'targetSdkVersion 36')
                       p.write_text(t)
               except: pass
-
-          # === 3. AdMob ===
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml = mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
