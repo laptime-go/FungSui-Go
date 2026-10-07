@@ -11,6 +11,9 @@
       "resizeMode": "contain",
       "image": "./icon.jpg"
     },
+    "ios": {
+      "bundleIdentifier": "com.laptimego.fungsui"
+    },
     "android": {
       "package": "com.laptimego.fungsui",
       "versionCode": 1,
