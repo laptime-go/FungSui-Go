@@ -16,7 +16,7 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE
+      - name: Force Expo 52 STONE + AppId in app.json
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
@@ -29,31 +29,26 @@ jobs:
           pkg.dependencies["react"]="18.3.1";
           pkg.dependencies["react-native"]="0.76.9";
           fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
-          JS
-          npm install --legacy-peer-deps
-          npx expo --version
-
-      - name: AUTO FIX app.json + valid gservices
-        run: |
-          node - << 'JS'
-          const fs=require('fs');
+          // 強制 app.json 保留 AppId - 按你要求
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
           if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
-          j.expo.plugins=[
-            "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0"}}],
-            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
-          ];
           j.expo.android.package="com.laptimego.fungsui";
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
+          j.expo.plugins=[
+            "expo-sensors",
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
+            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
+          ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          // 合法 dummy gservices，唔會再令 NativeGoogleMobileAdsModule 炸
-          const g = `{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
+          const g=`{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
           fs.writeFileSync('google-services.json', g);
-          console.log("fixed");
+          console.log("AppId in app.json fixed");
           JS
+          npm install --legacy-peer-deps
+          npx expo --version
+          cat app.json
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
@@ -67,6 +62,7 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
+              print("AdMob injected")
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -83,7 +79,9 @@ jobs:
                       s=re.sub(r'safeExtGet\("minSdkVersion".*?\)', '24', s)
                   if s!=orig:
                       p.write_text(s)
-              except: pass
+                      print(f"FIXED {p}")
+              except Exception as e:
+                  pass
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           if "suppressUnsupportedCompileSdk" not in txt:
