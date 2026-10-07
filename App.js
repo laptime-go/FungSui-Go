@@ -25,42 +25,69 @@ export default function App() {
   const pendingAction = useRef(null);
   const interstitialRef = useRef(null);
   const appOpenRef = useRef(null);
+  const isMounted = useRef(true);
 
   useEffect(()=>{
+    isMounted.current = true;
     let mSub = null;
-    let openSub, loadedSub, closedSub;
+    const listeners = [];
 
     (async () => {
       try {
-        // 1. 先初始化，STONE 40:0C:73 唔炸關鍵
+        // 1. 先初始化，STONE 40:0C:73 唔炸關鍵 - SDK36 必需
         await mobileAds().initialize();
+        if(!isMounted.current) return;
         setAdsReady(true);
 
-        // 2. 初始化完先 create
-        const inter = InterstitialAd.createForAdRequest(INTER_ID);
-        const appOpen = AppOpenAd.createForAdRequest(OPEN_ID);
+        // 2. 初始化完先 create，加 requestNonPersonalizedAdsOnly 防政策炸
+        const inter = InterstitialAd.createForAdRequest(INTER_ID, {
+          requestNonPersonalizedAdsOnly: true,
+        });
+        const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {
+          requestNonPersonalizedAdsOnly: true,
+        });
         interstitialRef.current = inter;
         appOpenRef.current = appOpen;
 
-        appOpen.load();
-        openSub = appOpen.addAdEventListener(AdEventType.LOADED, () => {
-          try{ appOpen.show(); }catch(e){}
-        });
-        openSub = appOpen.addAdEventListener(AdEventType.ERROR, (e)=> console.log("appOpen error", e));
-
-        inter.load();
-        loadedSub = inter.addAdEventListener(AdEventType.LOADED, ()=> setInterLoaded(true));
-        closedSub = inter.addAdEventListener(AdEventType.CLOSED, ()=>{
-          setInterLoaded(false);
+        // Interstitial
+        try { inter.load(); } catch(e){}
+        listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> {
+          if(isMounted.current) setInterLoaded(true);
+        }));
+        listeners.push(inter.addAdEventListener(AdEventType.CLOSED, ()=>{
+          if(isMounted.current) setInterLoaded(false);
           try{ inter.load(); }catch(e){}
           lastAdTime.current = Date.now();
-          if(pendingAction.current === 'bazi'){ setBaziUnlocked(true); }
+          if(pendingAction.current === 'bazi'){
+            if(isMounted.current) setBaziUnlocked(true);
+          }
           pendingAction.current = null;
-        });
+        }));
+        listeners.push(inter.addAdEventListener(AdEventType.ERROR, (err)=>{
+          console.log("inter error", err);
+          if(isMounted.current) setInterLoaded(false);
+        }));
+
+        // AppOpen - 延遲 show，醫你張圖不斷停止運作
+        try { appOpen.load(); } catch(e){}
+        listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, () => {
+          // 唔好即刻 show，Android 14 會炸，延遲 800ms 同包 try
+          setTimeout(()=>{
+            try{
+              if(isMounted.current && appOpenRef.current) appOpen.show();
+            }catch(e){ console.log("appOpen show skip", e.message); }
+          }, 800);
+        }));
+        listeners.push(appOpen.addAdEventListener(AdEventType.ERROR, (e)=> {
+          console.log("appOpen error", e);
+        }));
+        listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{
+          try{ appOpen.load(); }catch(e){}
+        }));
 
       } catch(e) {
         console.log("ads init fail", e.message);
-        setAdsReady(true); // 就算廣告炸，羅盤都要行
+        if(isMounted.current) setAdsReady(true); // 就算廣告炸，羅盤都要行
       }
     })();
 
@@ -68,6 +95,7 @@ export default function App() {
     try {
       Magnetometer.setUpdateInterval(100);
       mSub = Magnetometer.addListener(d=>{
+        if(!isMounted.current) return;
         let a = Math.atan2(d.y,d.x)*(180/Math.PI);
         a = 90 - a; if(a < 0) a += 360;
         setHeading(a);
@@ -75,9 +103,8 @@ export default function App() {
     } catch(e) {}
 
     return ()=>{
-      try { openSub && openSub(); } catch(e){}
-      try { loadedSub && loadedSub(); } catch(e){}
-      try { closedSub && closedSub(); } catch(e){}
+      isMounted.current = false;
+      listeners.forEach(fn=>{ try{ fn && fn(); }catch(e){} });
       try { mSub && mSub.remove(); } catch(e){}
     };
   },[]);
@@ -88,9 +115,18 @@ export default function App() {
     pendingAction.current = type;
     const inter = interstitialRef.current;
     if(inter && interLoaded){
-      inter.show().catch(()=>{ try{ inter.load(); }catch(e){} });
+      try{
+        inter.show().catch(()=>{ try{ inter.load(); }catch(e){} });
+      }catch(e){
+        try{ inter.load(); }catch(err){}
+      }
     } else {
       try{ inter?.load(); }catch(e){}
+      // 如果廣告未 ready，八字都照解鎖，唔好卡死 user
+      if(type==='bazi' &&!interLoaded){
+        // 唔自動解鎖，等佢 load，否則收益冇咗
+        // setBaziUnlocked(true);
+      }
     }
   };
 
@@ -119,7 +155,7 @@ export default function App() {
         </View>
         <View style={styles.nativeBox}>
           <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          {adsReady && <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />}
+          {adsReady && <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={(e)=>console.log("native fail", e)} />}
         </View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
@@ -132,7 +168,7 @@ export default function App() {
         </View>
       </ScrollView>
       <View style={styles.ad}>
-        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}
+        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} onAdFailedToLoad={(e)=>console.log("banner fail", e)} />}
       </View>
     </View>
   );
