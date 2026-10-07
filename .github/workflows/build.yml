@@ -84,7 +84,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-         ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
