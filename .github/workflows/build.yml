@@ -16,7 +16,7 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE + AppId in app.json
+      - name: Force Expo 52 STONE
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
@@ -25,7 +25,6 @@ jobs:
           pkg.dependencies["expo"]="~52.0.46";
           pkg.dependencies["expo-sensors"]="~14.0.2";
           pkg.dependencies["expo-build-properties"]="~0.13.2";
-          // 重點: 12.4.0 太舊，升 14.7.0 先兼容 RN 0.76.9
           pkg.dependencies["react-native-google-mobile-ads"]="14.7.0";
           pkg.dependencies["react"]="18.3.1";
           pkg.dependencies["react-native"]="0.76.9";
@@ -33,12 +32,13 @@ jobs:
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
           if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
           j.expo.android.package="com.laptimego.fungsui";
+          j.expo.android.versionCode=2;
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
           j.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.24"}}],
             ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
@@ -46,30 +46,16 @@ jobs:
           fs.writeFileSync('google-services.json', g);
           JS
           npm install --legacy-peer-deps
-          # PATCH - 解決你張圖 NativeGoogleMobileAdsModule.js:7:20 炸 prebuild
-          node - << 'JS'
-          const fs=require('fs');
-          const p='node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js';
-          try{
-            let s=fs.readFileSync(p,'utf8');
-            s=s.replace(/.*TurboModuleRegistry\.getEnforcing.*/, 'let mod=null; try{ mod=require("react-native").TurboModuleRegistry.getEnforcing("GoogleMobileAds"); }catch(e){ mod=null; } module.exports={default:mod};');
-            if(s.includes('getEnforcing')) {
-              // 後備直接寫死 dummy
-              fs.writeFileSync(p, 'module.exports={default:{getConstants:()=>({})}}; module.exports.getConstants=()=>({});');
-            } else {
-              fs.writeFileSync(p,s);
-            }
-            console.log("patched NativeGoogleMobileAdsModule.js");
-          }catch(e){ console.log("patch skip", e.message); }
-          JS
-          npx expo --version
-          cat app.json
+          # 1. patch dummy 只為過 prebuild
+          echo "module.exports={default:{getConstants:()=>({})}};" > node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: NUCLEAR FIX - STONE 40:0C:73 + AdMob 8454882079
+      - name: Restore real AdMob + NUCLEAR FIX
         run: |
+          # 2. prebuild 過咗，restore 真檔，唔係 Kotlin 會炸
+          npm install react-native-google-mobile-ads@14.7.0 --legacy-peer-deps --no-save
           python3 - << 'PY'
           import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
@@ -77,6 +63,7 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
+          # 修 components.release 同 kotlin version 衝突
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
                   s=p.read_text(errors='ignore')
@@ -85,19 +72,23 @@ jobs:
                       s=re.sub(r'publishing\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}\s*\}', ' ', s)
                       s=s.replace("from components.release", 'from components.findByName("release")')
                       s=s.replace("components.release", 'components.findByName("release")')
-                  if "compileSdkVersion is not specified" in s or 'safeExtGet("compileSdkVersion"' in s:
-                      s=re.sub(r'safeExtGet\("compileSdkVersion".*?\)', '36', s)
-                      s=re.sub(r'compileSdkVersion\s+safeExtGet.*', 'compileSdkVersion 36', s)
-                      s=re.sub(r'safeExtGet\("targetSdkVersion".*?\)', '36', s)
-                      s=re.sub(r'targetSdkVersion\s+safeExtGet.*', 'targetSdkVersion 36', s)
+                  if 'kotlinVersion' not in s and 'com.android.application' in s:
+                      s=s.replace("buildscript", 'buildscript { ext { kotlinVersion = "1.9.24" } }\nbuildscript')
                   if s!=orig:
                       p.write_text(s)
               except: pass
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
           if "suppressUnsupportedCompileSdk" not in txt:
-              txt+="\nandroid.suppressUnsupportedCompileSdk=36\n"
+              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nandroid.nonTransitiveRClass=false\n"
           gp.write_text(txt)
+          # 強制 android/build.gradle 用 1.9.24
+          bg=pathlib.Path("android/build.gradle")
+          bgt=bg.read_text()
+          bgt=bgt.replace("1.9.22","1.9.24").replace("1.9.23","1.9.24")
+          if "kotlinVersion" not in bgt:
+              bgt=bgt.replace("ext {", 'ext {\n        kotlinVersion = "1.9.24"\n')
+          bg.write_text(bgt)
           PY
 
       - name: Keystore STONE 40:0C:73
@@ -123,7 +114,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease
+          ./gradlew bundleRelease assembleRelease --stacktrace --no-daemon -x lintVitalAnalyzeRelease
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
