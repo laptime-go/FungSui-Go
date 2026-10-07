@@ -18,6 +18,14 @@ jobs:
         run: |
           npm install
           npm install expo-build-properties
+      - name: FIX ALL release property bug - expo + all modules
+        run: |
+          # patch 所有有問題嘅 build.gradle
+          grep -r "from components.release" node_modules --include="*.gradle" || true
+          find node_modules -name "*.gradle" -exec sed -i 's/from components\.release/from components.findByName("release")/g' {} \;
+          find node_modules -name "*.gradle" -exec sed -i 's/components\.release/components.findByName("release")/g' {} \;
+          echo "patched expo modules"
+          grep -r "components" node_modules/expo/android/build.gradle | head -20
       - name: FORCE FIX app.json - NO AdMob plugin
         run: |
           node -e "
@@ -34,28 +42,18 @@ jobs:
           "
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: Inject AdMob + Ultimate Fix
+      - name: Inject AdMob + Fix app build.gradle
         run: |
           python3 - << 'PY'
-          import pathlib, re
+          import pathlib
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-          p=pathlib.Path("android/app/build.gradle")
-          s=p.read_text()
-          # 1. 終極修 publishing
-          s=s.replace('from components.release', 'from components.findByName("release")')
-          # 如果仲有錯，直接刪除成個 publishing block
-          s=re.sub(r'afterEvaluate\s*\{[^}]*publishing[^}]*\}[^}]*\}', '', s, flags=re.DOTALL)
-          s=re.sub(r'publishing\s*\{[\s\S]*?\n\}\n\}', '', s)
-          p.write_text(s)
-          # 2. 加大 memory
-          gp=pathlib.Path("android/gradle.properties")
-          gp.write_text(gp.read_text() + "\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=2g\n")
-          print("=== build.gradle tail ===")
-          print(s[-3000:])
+          # 再 patch 一次 android 目錄生成出嚟嘅
+          import subprocess, glob
+          subprocess.run(["find","android","-name","*.gradle","-exec","sed","-i","s/from components.release/from components.findByName(\"release\")/g","{}",";"])
           PY
       - name: Keystore STONE 40:0C:73
         run: |
@@ -73,16 +71,12 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-      - name: Build AAB+APK - debug true error
+      - name: Build AAB+APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon 2>&1 | tee build.log || true
-          echo "==== FIRST FAILED TASK ===="
-          grep -A 20 "FAILED\|> Task :.* FAILED\|error:\|Could not" build.log | head -n 150
-          ./gradlew bundleRelease assembleRelease --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon --stacktrace
       - name: Upload
-        if: always()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
@@ -90,4 +84,3 @@ jobs:
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
-            android/build.log
