@@ -34,12 +34,10 @@ export default function App() {
 
     (async () => {
       try {
-        // 1. 先初始化，STONE 40:0C:73 唔炸關鍵 - SDK36 必需
         await mobileAds().initialize();
         if(!isMounted.current) return;
         setAdsReady(true);
 
-        // 2. 初始化完先 create，加 requestNonPersonalizedAdsOnly 防政策炸
         const inter = InterstitialAd.createForAdRequest(INTER_ID, {
           requestNonPersonalizedAdsOnly: true,
         });
@@ -49,7 +47,7 @@ export default function App() {
         interstitialRef.current = inter;
         appOpenRef.current = appOpen;
 
-        // Interstitial
+        // Interstitial - 安全
         try { inter.load(); } catch(e){}
         listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> {
           if(isMounted.current) setInterLoaded(true);
@@ -68,15 +66,11 @@ export default function App() {
           if(isMounted.current) setInterLoaded(false);
         }));
 
-        // AppOpen - 延遲 show，醫你張圖不斷停止運作
+        // AppOpen - 醫閃退：只 load，絕對唔自動 show
         try { appOpen.load(); } catch(e){}
         listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, () => {
-          // 唔好即刻 show，Android 14 會炸，延遲 800ms 同包 try
-          setTimeout(()=>{
-            try{
-              if(isMounted.current && appOpenRef.current) appOpen.show();
-            }catch(e){ console.log("appOpen show skip", e.message); }
-          }, 800);
+          console.log("appOpen loaded - 唔自動 show，醫不斷停止運作");
+          // 之前你有 setTimeout show()，呢度刪晒，唔會再炸
         }));
         listeners.push(appOpen.addAdEventListener(AdEventType.ERROR, (e)=> {
           console.log("appOpen error", e);
@@ -87,11 +81,10 @@ export default function App() {
 
       } catch(e) {
         console.log("ads init fail", e.message);
-        if(isMounted.current) setAdsReady(true); // 就算廣告炸，羅盤都要行
+        if(isMounted.current) setAdsReady(true);
       }
     })();
 
-    // 羅盤
     try {
       Magnetometer.setUpdateInterval(100);
       mSub = Magnetometer.addListener(d=>{
@@ -122,11 +115,6 @@ export default function App() {
       }
     } else {
       try{ inter?.load(); }catch(e){}
-      // 如果廣告未 ready，八字都照解鎖，唔好卡死 user
-      if(type==='bazi' &&!interLoaded){
-        // 唔自動解鎖，等佢 load，否則收益冇咗
-        // setBaziUnlocked(true);
-      }
     }
   };
 
