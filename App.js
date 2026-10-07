@@ -24,52 +24,40 @@ export default function App() {
   const [baziUnlocked, setBaziUnlocked] = useState(false);
   const [interLoaded, setInterLoaded] = useState(false);
   const lastAdTime = useRef(0);
-  const pendingAction = useRef(null); // 'wealth' or 'bazi'
+  const pendingAction = useRef(null);
 
   useEffect(()=>{
-    appOpenAd.load();
-    const openSub = appOpenAd.addAdEventListener(AdEventType.LOADED, () => appOpenAd.show());
-    interstitial.load();
-    const loadedSub = interstitial.addAdEventListener(AdEventType.LOADED, ()=> setInterLoaded(true));
-    const closedSub = interstitial.addAdEventListener(AdEventType.CLOSED, ()=>{
-      setInterLoaded(false);
+    try{
+      appOpenAd.load();
+      const openSub = appOpenAd.addAdEventListener(AdEventType.LOADED, () => { try{ appOpenAd.show(); }catch(e){} });
       interstitial.load();
-      lastAdTime.current = Date.now();
-      if(pendingAction.current === 'bazi'){
-        setBaziUnlocked(true);
-      }
-      pendingAction.current = null;
-    });
-    Magnetometer.setUpdateInterval(100);
-    const m = Magnetometer.addListener(d=>{
-      let a = Math.atan2(d.y,d.x)*(180/Math.PI);
-      a = 90 - a;
-      if(a < 0) a += 360;
-      setHeading(a);
-    });
-    return ()=>{openSub(); loadedSub(); closedSub(); m&&m.remove();};
+      const loadedSub = interstitial.addAdEventListener(AdEventType.LOADED, ()=> setInterLoaded(true));
+      const closedSub = interstitial.addAdEventListener(AdEventType.CLOSED, ()=>{
+        setInterLoaded(false);
+        interstitial.load();
+        lastAdTime.current = Date.now();
+        if(pendingAction.current === 'bazi'){ setBaziUnlocked(true); }
+        pendingAction.current = null;
+      });
+      Magnetometer.setUpdateInterval(100);
+      const m = Magnetometer.addListener(d=>{
+        let a = Math.atan2(d.y,d.x)*(180/Math.PI);
+        a = 90 - a; if(a < 0) a += 360;
+        setHeading(a);
+      });
+      return ()=>{openSub(); loadedSub(); closedSub(); m&&m.remove();};
+    }catch(e){ console.log(e); }
   },[]);
 
   const showAd = (type) => {
     const now = Date.now();
     if(now - lastAdTime.current < 60000 && type!=='bazi') return;
     pendingAction.current = type;
-    if(interLoaded){
-      interstitial.show().catch(()=>{ interstitial.load(); });
-    } else {
-      interstitial.load();
-    }
+    if(interLoaded){ interstitial.show().catch(()=>{ interstitial.load(); }); } else { interstitial.load(); }
   };
 
-  const getMountain = () => {
-    const index = Math.floor((heading + 7.5) / 15) % 24;
-    return MOUNTAINS_24[index];
-  };
-  const getDirection = () => {
-    const dirs = ["正北","東北","正東","東南","正南","西南","正西","西北"];
-    return dirs[Math.round(heading/45)%8];
-  };
-
+  const getMountain = () => { const index = Math.floor((heading + 7.5) / 15) % 24; return MOUNTAINS_24[index]; };
+  const getDirection = () => { const dirs = ["正北","東北","正東","東南","正南","西南","正西","西北"]; return dirs[Math.round(heading/45)%8]; };
   const dir = getDirection();
   const isWealth = FLYING_2026[dir]?.includes("財");
   const baziResult = bazi? (parseInt(bazi.slice(0,4))%2==0? "喜火🔥 宜坐正南，九紫位" : "喜水💧 宜坐正北，一白財位") : "";
@@ -78,16 +66,9 @@ export default function App() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{alignItems:'center', paddingBottom: 100}}>
         <Text style={styles.title}>風水佬Go - {Math.round(heading)}°</Text>
-        <Text style={styles.sub}>2026丙午年・最強收益版</Text>
-
-        <View style={styles.tungBox}>
-          <Text style={styles.tungText}>今日 {new Date().toLocaleDateString('zh-HK')} | 農曆自計 | 煞東 沖兔</Text>
-        </View>
-
-        <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}>
-          <Text style={styles.n}>▲北 {getMountain()}山</Text>
-        </View>
-
+        <Text style={styles.sub}>2026丙午年・最強收益版 STONE 40:0C:73</Text>
+        <View style={styles.tungBox}><Text style={styles.tungText}>今日 {new Date().toLocaleDateString('zh-HK')} | 煞東 沖兔</Text></View>
+        <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}><Text style={styles.n}>▲北 {getMountain()}山</Text></View>
         <View style={[styles.resultBox, isWealth && styles.wealthBox]}>
           <Text style={styles.result}>{dir} - {FLYING_2026[dir]}</Text>
           <Text style={styles.resultSub}>{isWealth? '💰 搵到財位！' : '轉下羅盤搵財位'}</Text>
@@ -98,12 +79,7 @@ export default function App() {
             </TouchableOpacity>
           )}
         </View>
-
-        <View style={styles.nativeBox}>
-          <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />
-        </View>
-
+        <View style={styles.nativeBox}><Text style={styles.nativeTitle}>風水貼士推薦</Text><BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} /></View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
           <TextInput style={styles.input} placeholder="YYYY-MM-DD 例如 1990-05-20" placeholderTextColor="#666" value={bazi} onChangeText={(t)=>{setBazi(t); setBaziUnlocked(false);}} />
@@ -111,13 +87,9 @@ export default function App() {
             <TouchableOpacity style={[styles.goldBtn, {backgroundColor:'#222', borderWidth:1, borderColor:'#d4af37', marginTop:10}]} onPress={()=>{ if(bazi.length>=4) showAd('bazi'); }}>
               <Text style={[styles.goldBtnText, {color:'#d4af37'}]}>🔓 睇喜用神方位 (睇廣告解鎖)</Text>
             </TouchableOpacity>
-          ) : (
-            <Text style={styles.baziRes}>{baziResult}</Text>
-          )}
-          {!baziUnlocked && bazi.length>0 && <Text style={styles.hint}>輸入後按掣睇廣告即解鎖，合規收益</Text>}
+          ) : (<Text style={styles.baziRes}>{baziResult}</Text>)}
         </View>
       </ScrollView>
-
       <View style={styles.ad}><BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} /></View>
     </View>
   );
@@ -143,6 +115,5 @@ const styles = StyleSheet.create({
   baziBox:{width:'90%',marginTop:15}, label:{color:'#aaa',fontSize:12},
   input:{backgroundColor:'#222',color:'#fff',padding:10,borderRadius:8,marginTop:6,borderWidth:1,borderColor:'#333'},
   baziRes:{color:'#d4af37',marginTop:10, fontSize:16, fontWeight:'bold'},
-  hint:{color:'#666',fontSize:10, marginTop:6},
   ad:{position:'absolute',bottom:0,width:'100%'}
 });
