@@ -24,7 +24,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./icon.jpg",
         "backgroundColor": "#000000"
-      }
+      },
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-sensors",
@@ -35,8 +36,16 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "buildToolsVersion": "36.0.0"
+            "buildToolsVersion": "36.0.0",
+            "kotlinVersion": "1.9.22"
           }
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9890149028563226~8454882079",
+          "iosAppId": "ca-app-pub-9890149028563226~8454882079"
         }
       ]
     ]
