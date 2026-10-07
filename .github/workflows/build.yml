@@ -29,80 +29,46 @@ jobs:
           j.expo.version='1.0.0';
           j.expo.orientation='portrait';
           j.expo.icon='./icon.jpg';
-          j.expo.splash=j.expo.splash||{};
-          j.expo.splash.backgroundColor='#000000';
-          j.expo.splash.resizeMode='contain';
-          j.expo.splash.image='./icon.jpg';
-          j.expo.android=j.expo.android||{};
-          j.expo.android.package='com.laptimego.fungsui';
-          j.expo.android.compileSdkVersion=36;
-          j.expo.android.targetSdkVersion=36;
-          j.expo.android.minSdkVersion=24;
-          j.expo.android.versionCode=1;
-          j.expo.android.adaptiveIcon={ foregroundImage: './icon.jpg', backgroundColor: '#000000' };
+          j.expo.splash={backgroundColor:'#000000', resizeMode:'contain', image:'./icon.jpg'};
+          j.expo.android={package:'com.laptimego.fungsui', compileSdkVersion:36, targetSdkVersion:36, minSdkVersion:24, versionCode:1, adaptiveIcon:{foregroundImage:'./icon.jpg', backgroundColor:'#000000'}};
           j.expo.plugins=[['expo-sensors']];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log('patched FungSui to 36 v1 + icon.jpg');
           "
 
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: ULTIMATE FORCE Fix API 36 + Fix expo release bug + Inject AdMob
+      - name: KILL release bug - Final Fix
         run: |
           python3 - << 'PY'
           import pathlib, re
-          ap = pathlib.Path("android/app/build.gradle")
-          s = ap.read_text()
+          f = pathlib.Path("android/app/build.gradle")
+          txt = f.read_text()
 
-          # === 終極殺 afterEvaluate，計括號刪，唔再靠正則 ===
-          lines = s.splitlines()
-          out = []
-          in_after = False
-          brace = 0
-          for line in lines:
-              if not in_after and 'afterEvaluate' in line:
-                  in_after = True
-                  brace = line.count('{') - line.count('}')
-                  if brace <= 0:
-                      brace = 1
-                  continue
-              if in_after:
-                  brace += line.count('{') - line.count('}')
-                  if brace <= 0:
-                      in_after = False
-                  continue
-              out.append(line)
-          s = "\n".join(out)
-          
-          # 清晒所有 components.release 殘留
-          s = s.replace('from components.release', '// removed')
-          s = s.replace('components.release', '// removed')
-          s = s.replace('from components.findByName("release").findByName', 'from components.findByName("release")')
-          s = re.sub(r'versionCode \d+', 'versionCode 1', s)
-          s = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', s)
+          # 1. 成個 afterEvaluate / publishing 炸掉 - 唔理幾多括號
+          txt = re.sub(r'afterEvaluate\s*\{[\s\S]*?\n\}\s*\n\}', '', txt, flags=re.MULTILINE)
+          txt = re.sub(r'publishing\s*\{[\s\S]*?\n\s*\}', '', txt)
+          txt = re.sub(r'from\s+components\.[^\n]*', '// deleted from components', txt)
 
-          if 'singleVariant' not in s:
-              s = s.replace('android {', 'android {\n    publishing { singleVariant("release") }')
+          # 2. 確保 android 區塊有 singleVariant
+          if 'singleVariant' not in txt:
+              txt = txt.replace('android {', 'android {\n    publishing { singleVariant("release") { withSourcesJar() } }')
 
-          ap.write_text(s)
-          print("FIXED afterEvaluate release bug")
+          # 3. 保 versionCode 1
+          txt = re.sub(r'versionCode \d+', 'versionCode 1', txt)
+          txt = re.sub(r'versionName ".*?"', 'versionName "1.0.0"', txt)
+
+          f.write_text(txt)
+          print("=== AFTER FIX ===")
+          print(txt[txt.find("android {"):txt.find("android {")+800])
+          print("=== FIX DONE ===")
 
           # SDK 36
-          bg_path = pathlib.Path("android/build.gradle")
-          if bg_path.exists():
-              bg = bg_path.read_text()
-              bg = re.sub(r'compileSdkVersion\s*=\s*\d+', 'compileSdkVersion = 36', bg)
-              bg = re.sub(r'targetSdkVersion\s*=\s*\d+', 'targetSdkVersion = 36', bg)
-              bg = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 24', bg)
-              bg_path.write_text(bg)
-
           for p in pathlib.Path("android").rglob("build.gradle"):
               try:
                   t = p.read_text()
-                  if 'compileSdkVersion 34' in t or 'targetSdkVersion 34' in t:
-                      t = t.replace('compileSdkVersion 34','compileSdkVersion 36').replace('targetSdkVersion 34','targetSdkVersion 36')
-                      p.write_text(t)
+                  t = t.replace('compileSdkVersion 34','compileSdkVersion 36').replace('targetSdkVersion 34','targetSdkVersion 36').replace('compileSdkVersion = 34','compileSdkVersion = 36').replace('targetSdkVersion = 34','targetSdkVersion = 36')
+                  p.write_text(t)
               except: pass
 
           mf = pathlib.Path("android/app/src/main/AndroidManifest.xml")
@@ -110,10 +76,9 @@ jobs:
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
               xml = xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-              print("Injected AdMob ID")
           PY
 
-      - name: Use Permanent Keystore 40:0C:73 lapgo + Inject signing
+      - name: Use Permanent Keystore 40:0C:73 lapgo
         run: |
           mkdir -p android/app
           echo "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
@@ -129,15 +94,12 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-          keytool -list -v -keystore android/app/release.keystore -alias ${{ secrets.KEYSTONE_ALIAS }} -storepass ${{ secrets.KEYSTONE_PASSWORD }} | grep -E "SHA1|Alias"
 
       - name: Build AAB + APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon
-          echo "=== FINAL CHECK MUST BE 40:0C:73 ==="
-          keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab | grep SHA1 || true
 
       - name: Upload AAB+APK to Release
         if: always()
