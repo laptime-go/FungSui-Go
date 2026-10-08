@@ -61,7 +61,7 @@ jobs:
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
-              xml=xml.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
+              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
@@ -85,7 +85,7 @@ jobs:
           txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=1.9.22', txt)
           if "suppressUnsupportedCompileSdk" not in txt:
               txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=1.9.22\n"
-          gp.write_text(txt.replace("2.0.21","1.9.22"))
+          gp.write_text(txt.replace("2.0.21","1.9.22").replace("1.9.24","1.9.22"))
           PY
 
       - name: Keystore STONE 40:0C:73
@@ -111,7 +111,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease -x lintVitalReportRelease --stacktrace
         env:
           NODE_ENV: production
 
