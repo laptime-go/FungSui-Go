@@ -18,7 +18,7 @@ jobs:
 
       - name: Force Expo 52 STONE SDK36 versionCode 2
         run: |
-          rm -rf node_modules android package-lock.json google-services.json
+          rm -rf node_modules android package-lock.json
           node - << 'JS'
           const fs=require('fs');
           let pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
@@ -29,60 +29,52 @@ jobs:
           pkg.dependencies["react"]="18.3.1";
           pkg.dependencies["react-native"]="0.76.9";
           fs.writeFileSync('package.json', JSON.stringify(pkg,null,2));
-          let j=JSON.parse(fs.readFileSync('app.json','utf8'));
-          delete j.expo.android.googleServicesFile;
-          j.expo.android.package="com.laptimego.fungsui";
-          j.expo.android.versionCode=2;
-          j.expo.android.compileSdkVersion=36;
-          j.expo.android.targetSdkVersion=36;
-          j.expo.android.minSdkVersion=24;
-          j.expo.plugins=[
+          let app=JSON.parse(fs.readFileSync('app.json','utf8'));
+          if(app.expo.android && app.expo.android.googleServicesFile) delete app.expo.android.googleServicesFile;
+          app.expo.android.package="com.laptimego.fungsui";
+          app.expo.android.versionCode=2;
+          app.expo.android.compileSdkVersion=36;
+          app.expo.android.targetSdkVersion=36;
+          app.expo.android.minSdkVersion=24;
+          app.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
-            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
+            ["expo-build-properties",{android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
+            ["react-native-google-mobile-ads",{androidAppId:"ca-app-pub-9890149028563226~8454882079", iosAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
-          fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          fs.writeFileSync('google-services.json','{}');
+          fs.writeFileSync('app.json', JSON.stringify(app,null,2));
           JS
           npm install --legacy-peer-deps
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
+        env:
+          NODE_ENV: production
 
-      - name: HOTFIX V4 SDK36 kill all crash
+      - name: HOTFIX SDK36 + kotlin 1.9.22
         run: |
-          rm -f google-services.json android/app/google-services.json
           python3 - << 'PY'
-          import pathlib, re, sys
+          import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          t=mf.read_text()
-          if "APPLICATION_ID" not in t:
-              t=t.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
-              mf.write_text(t)
-          # 1. kill all publishing + gms + kotlin version
-          for fp in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
-              try:
-                  s=fp.read_text(errors='ignore')
-                  orig=s
-                  s=re.sub(r'publishing\s*\{[^}]*from\s+components\.release[^}]*\}', ' ', s, flags=re.DOTALL)
-                  s=s.replace("from components.release", "from components.findByName('release')?: components.findByName('default')")
-                  s=s.replace("components.release", "components.findByName('release')")
-                  s=s.replace("apply plugin: 'com.google.gms.google-services'", "// removed gms")
-                  s=s.replace('apply plugin: "com.google.gms.google-services"', "// removed gms")
-                  if s!=orig:
-                      fp.write_text(s)
-              except: pass
+          xml=mf.read_text()
+          if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
+              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+              mf.write_text(xml)
+          for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
+              if fp.exists():
+                  t=fp.read_text()
+                  t=t.replace("apply plugin: 'com.google.gms.google-services'","// removed gms")
+                  t=t.replace('apply plugin: "com.google.gms.google-services"',"// removed gms")
+                  fp.write_text(t)
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text()
-          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=1.9.22', txt)
-          txt=txt.replace("2.0.21","1.9.22").replace("2.0.0","1.9.22").replace("1.9.24","1.9.22")
-          txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nandroid.useAndroidX=true\n"
-          gp.write_text(txt)
-          # 2. force lint off in app/build.gradle
+          # 清掉舊 MYAPP + kotlin
+          lines=[l for l in txt.splitlines() if "MYAPP_" not in l and "kotlinVersion" not in l and l.strip()!=""]
+          lines+=["org.gradle.jvmargs=-Xmx4096m","android.useAndroidX=true","android.suppressUnsupportedCompileSdk=36","newArchEnabled=false","kotlinVersion=1.9.22"]
+          gp.write_text("\n".join(lines)+"\n")
           ab=pathlib.Path("android/app/build.gradle")
           s=ab.read_text()
           if "lintOptions" not in s:
-              s=s.replace("android {", "android {\n lintOptions { abortOnError false; checkReleaseBuilds false }\n lint { abortOnError false; checkReleaseBuilds false }")
+              s=s.replace("android {","android {\n lintOptions { abortOnError false; checkReleaseBuilds false }")
           ab.write_text(s)
           PY
 
@@ -92,25 +84,26 @@ jobs:
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
 
-      - name: Signing
+      - name: Signing STONE
         run: |
-          for k in RELEASE UPLOAD; do
-            echo "MYAPP_${k}_STORE_FILE=release.keystore"
-            echo "MYAPP_${k}_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}"
-            echo "MYAPP_${k}_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
-            echo "MYAPP_${k}_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
-          done >> android/gradle.properties
+          {
+          echo "MYAPP_RELEASE_STORE_FILE=release.keystore"
+          echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}"
+          echo "MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
+          echo "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
+          echo "MYAPP_UPLOAD_STORE_FILE=release.keystore"
+          echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}"
+          echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
+          echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
+          } >> android/gradle.properties
 
       - name: Build AAB+APK SDK36 versionCode 2
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease -x lintVitalReportRelease --stacktrace 2>&1 | tee /tmp/build.log
-          if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "========== REAL FAIL REASON =========="
-            grep -n -A 30 "FAILED\|FAILURE\|Execution failed\|What went wrong" /tmp/build.log | tail -n 200
-            exit 1
-          fi
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
+        env:
+          NODE_ENV: production
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
