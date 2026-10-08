@@ -16,30 +16,6 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: PATCH App.js - 唔刪野 只延遲AppOpen醫一開死
-        run: |
-          python3 - << 'PY'
-          import pathlib
-          p=pathlib.Path("App.js")
-          s=p.read_text()
-          # 將即時 create AppOpen 改做延遲 3500ms 先 create，唔刪功能
-          if "setTimeout(()=>{" not in s or "AppOpenAd.createForAdRequest" in s.split("setTimeout")[0]:
-              s=s.replace(
-          "const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {",
-          "let appOpen=null; setTimeout(()=>{ try{ appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {"
-              )
-              s=s.replace(
-          "requestNonPersonalizedAdsOnly: true,\n        });\n        interstitialRef.current = inter;",
-          "requestNonPersonalizedAdsOnly: true, }); appOpenRef.current = appOpen; try{ appOpen.load(); }catch(e){} }catch(e){} }, 3500);\n        const _dummyOpen = { load:()=>{} };\n        interstitialRef.current = inter; // keep original flow"
-              )
-              # 防止重複定義 appOpenRef
-              s=s.replace("appOpenRef.current = appOpen;\n\n        // Interstitial", "// Interstitial")
-              # Banner size 醫 ANCHORED 炸
-              s=s.replace("ANCHORED_ADAPTIVE_BANNER", "BANNER")
-              p.write_text(s)
-              print("patched App.js delay AppOpen")
-          PY
-
       - name: Force Expo 52 STONE SDK36 versionCode 1
         run: |
           rm -rf node_modules android package-lock.json google-services.json
@@ -62,17 +38,15 @@ jobs:
           j.expo.android.minSdkVersion=24;
           j.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
-            ["react-native-google-mobile-ads", {
-              androidAppId:"ca-app-pub-9890149028563226~8454882079",
-              iosAppId:"ca-app-pub-9890149028563226~8454882079"
-            }]
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"2.0.21"}}],
+            ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079", iosAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           const g=`{"project_info":{"project_number":"9890149028563226","project_id":"fungsui-go","storage_bucket":"fungsui-go.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:9890149028563226:android:8454882079","android_client_info":{"package_name":"com.laptimego.fungsui"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyDummyForBuild"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}}],"configuration_version":"1"}`;
           fs.writeFileSync('google-services.json', g);
           JS
           npm install --legacy-peer-deps
+          echo "module.exports={default:{getConstants:()=>({})}};" > node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
@@ -81,6 +55,7 @@ jobs:
 
       - name: HOTFIX - 刪 dummy gservices 一開唔死
         run: |
+          npm install react-native-google-mobile-ads@15.3.0 --legacy-peer-deps --no-save
           rm -f google-services.json android/app/google-services.json
           python3 - << 'PY'
           import pathlib, re
@@ -108,11 +83,10 @@ jobs:
                   fp.write_text(t)
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
-          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=1.9.22', txt)
-          txt=txt.replace("2.0.21","1.9.22").replace("1.9.24","1.9.22")
+          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=2.0.21', txt)
           if "suppressUnsupportedCompileSdk" not in txt:
-              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=1.9.22\n"
-          gp.write_text(txt)
+              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=2.0.21\n"
+          gp.write_text(txt.replace("1.9.22","2.0.21").replace("1.9.24","2.0.21"))
           PY
 
       - name: Keystore STONE 40:0C:73
@@ -146,7 +120,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go STONE 40:0C:73 SDK36 v1 FIX
+          name: FungSui-Go STONE 40:0C:73 SDK36 v1
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
