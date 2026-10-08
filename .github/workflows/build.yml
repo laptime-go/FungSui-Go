@@ -38,8 +38,8 @@ jobs:
           app.expo.android.minSdkVersion=24;
           app.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties",{android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
-            ["react-native-google-mobile-ads",{androidAppId:"ca-app-pub-9890149028563226~8454882079", iosAppId:"ca-app-pub-9890149028563226~8454882079"}]
+            ["expo-build-properties",{android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"2.0.21"}}],
+            ["react-native-google-mobile-ads",{androidAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
           fs.writeFileSync('app.json', JSON.stringify(app,null,2));
           JS
@@ -48,52 +48,57 @@ jobs:
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
 
-      - name: HOTFIX V6 SDK36 patch all libs
+      - name: HOTFIX V7 Kotlin 2.0.21 for ads
         run: |
           python3 - << 'PY'
           import pathlib, re
-          # 1. Manifest add AdMob ID
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          xml=mf.read_text()
-          if "APPLICATION_ID" not in xml:
-              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
-              mf.write_text(xml)
-          # 2. Force all subprojects compileSdk 36, minSdk 24, kotlin 1.9.22
-          for p in list(pathlib.Path("android").rglob("build.gradle")) + list(pathlib.Path("node_modules").rglob("build.gradle")):
-            try:
-              s=p.read_text(errors='ignore')
-              orig=s
-              # kill publishing
-              s=re.sub(r'publishing\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}', ' ', s)
-              # force compileSdk
-              s=re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 36', s)
-              s=re.sub(r'compileSdkVersion\s*=?\s*\d+', 'compileSdkVersion 36', s)
-              s=re.sub(r'targetSdk\s*=?\s*\d+', 'targetSdk 36', s)
-              s=re.sub(r'targetSdkVersion\s*=?\s*\d+', 'targetSdkVersion 36', s)
-              s=s.replace("apply plugin: 'com.google.gms.google-services'", "// removed")
-              s=s.replace('apply plugin: "com.google.gms.google-services"', "// removed")
-              s=re.sub(r'kotlin.*version.*2\.\d+\.\d+', "kotlinVersion = '1.9.22'", s)
-              if s!=orig:
-                  p.write_text(s)
-            except: pass
+          t=mf.read_text()
+          if "APPLICATION_ID" not in t:
+              t=t.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+              mf.write_text(t)
+          
+          # patch gradle.properties
           gp=pathlib.Path("android/gradle.properties")
-          lines=[l for l in gp.read_text().splitlines() if "MYAPP_" not in l and "kotlinVersion" not in l and l.strip()!=""]
-          lines+=["org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1g","android.useAndroidX=true","android.suppressUnsupportedCompileSdk=36","newArchEnabled=false","kotlinVersion=1.9.22","expo.useLegacyPackaging=true"]
+          txt=gp.read_text()
+          lines=[l for l in txt.splitlines() if "MYAPP_" not in l and "kotlinVersion" not in l and l.strip()!=""]
+          lines+=[
+            "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1g",
+            "android.useAndroidX=true",
+            "android.suppressUnsupportedCompileSdk=36",
+            "newArchEnabled=false",
+            "kotlinVersion=2.0.21",
+            "kotlin.code.style=official"
+          ]
           gp.write_text("\n".join(lines)+"\n")
+
+          # patch app/build.gradle lint + kotlin jvmTarget
           ab=pathlib.Path("android/app/build.gradle")
           s=ab.read_text()
+          s=s.replace("apply plugin: 'com.google.gms.google-services'","// removed gms")
+          s=s.replace('apply plugin: "com.google.gms.google-services"',"// removed gms")
           if "lintOptions" not in s:
               s=s.replace("android {","android {\n lintOptions { abortOnError false; checkReleaseBuilds false }\n lint { abortOnError false; checkReleaseBuilds false }")
+          if "jvmTarget" not in s:
+              s=s.replace("compileOptions {","compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }\n    kotlinOptions { jvmTarget = '17' }\n    kotlin { jvmToolchain(17) }\n    compileOptions {")
           ab.write_text(s)
+
+          # patch ads lib build.gradle to force kotlin 2.0.21
+          ads = pathlib.Path("node_modules/react-native-google-mobile-ads/android/build.gradle")
+          if ads.exists():
+              sa=ads.read_text()
+              sa=re.sub(r'compileSdk.*\d+', 'compileSdk 36', sa)
+              sa=re.sub(r'targetSdk.*\d+', 'targetSdk 36', sa)
+              ads.write_text(sa)
           PY
 
-      - name: Keystore STONE 40:0C:73
+      - name: Keystore
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
 
-      - name: Signing STONE
+      - name: Signing
         run: |
           {
           echo "MYAPP_RELEASE_STORE_FILE=release.keystore"
@@ -112,10 +117,8 @@ jobs:
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace 2>&1 | tee /tmp/build.log
           if [ ${PIPESTATUS[0]} -ne 0 ]; then
-            echo "========== REAL FAIL AT =========="
-            grep -n "FAILED\|What went wrong\|Execution failed" /tmp/build.log | tail -n 50
-            echo "========== DETAIL =========="
-            grep -n -A 30 "What went wrong" /tmp/build.log | tail -n 100
+            echo "===== REAL FAIL ====="
+            grep -n -A 20 "e: file://\|Compilation error\|What went wrong" /tmp/build.log | tail -n 200
             exit 1
           fi
 
