@@ -47,34 +47,43 @@ jobs:
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
-        env:
-          NODE_ENV: production
 
-      - name: HOTFIX SDK36 + kotlin 1.9.22
+      - name: HOTFIX V6 SDK36 patch all libs
         run: |
           python3 - << 'PY'
           import pathlib, re
+          # 1. Manifest add AdMob ID
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
-          if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
+          if "APPLICATION_ID" not in xml:
               xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
               mf.write_text(xml)
-          for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
-              if fp.exists():
-                  t=fp.read_text()
-                  t=t.replace("apply plugin: 'com.google.gms.google-services'","// removed gms")
-                  t=t.replace('apply plugin: "com.google.gms.google-services"',"// removed gms")
-                  fp.write_text(t)
+          # 2. Force all subprojects compileSdk 36, minSdk 24, kotlin 1.9.22
+          for p in list(pathlib.Path("android").rglob("build.gradle")) + list(pathlib.Path("node_modules").rglob("build.gradle")):
+            try:
+              s=p.read_text(errors='ignore')
+              orig=s
+              # kill publishing
+              s=re.sub(r'publishing\s*\{[\s\S]*?from\s+components\.release[\s\S]*?\}', ' ', s)
+              # force compileSdk
+              s=re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 36', s)
+              s=re.sub(r'compileSdkVersion\s*=?\s*\d+', 'compileSdkVersion 36', s)
+              s=re.sub(r'targetSdk\s*=?\s*\d+', 'targetSdk 36', s)
+              s=re.sub(r'targetSdkVersion\s*=?\s*\d+', 'targetSdkVersion 36', s)
+              s=s.replace("apply plugin: 'com.google.gms.google-services'", "// removed")
+              s=s.replace('apply plugin: "com.google.gms.google-services"', "// removed")
+              s=re.sub(r'kotlin.*version.*2\.\d+\.\d+', "kotlinVersion = '1.9.22'", s)
+              if s!=orig:
+                  p.write_text(s)
+            except: pass
           gp=pathlib.Path("android/gradle.properties")
-          txt=gp.read_text()
-          # 清掉舊 MYAPP + kotlin
-          lines=[l for l in txt.splitlines() if "MYAPP_" not in l and "kotlinVersion" not in l and l.strip()!=""]
-          lines+=["org.gradle.jvmargs=-Xmx4096m","android.useAndroidX=true","android.suppressUnsupportedCompileSdk=36","newArchEnabled=false","kotlinVersion=1.9.22"]
+          lines=[l for l in gp.read_text().splitlines() if "MYAPP_" not in l and "kotlinVersion" not in l and l.strip()!=""]
+          lines+=["org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1g","android.useAndroidX=true","android.suppressUnsupportedCompileSdk=36","newArchEnabled=false","kotlinVersion=1.9.22","expo.useLegacyPackaging=true"]
           gp.write_text("\n".join(lines)+"\n")
           ab=pathlib.Path("android/app/build.gradle")
           s=ab.read_text()
           if "lintOptions" not in s:
-              s=s.replace("android {","android {\n lintOptions { abortOnError false; checkReleaseBuilds false }")
+              s=s.replace("android {","android {\n lintOptions { abortOnError false; checkReleaseBuilds false }\n lint { abortOnError false; checkReleaseBuilds false }")
           ab.write_text(s)
           PY
 
@@ -101,9 +110,14 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
-        env:
-          NODE_ENV: production
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace 2>&1 | tee /tmp/build.log
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "========== REAL FAIL AT =========="
+            grep -n "FAILED\|What went wrong\|Execution failed" /tmp/build.log | tail -n 50
+            echo "========== DETAIL =========="
+            grep -n -A 30 "What went wrong" /tmp/build.log | tail -n 100
+            exit 1
+          fi
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
