@@ -16,7 +16,7 @@ jobs:
       - name: Install SDK 36
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Force Expo 52 STONE SDK36 versionCode 1
+      - name: Force Expo 52 STONE SDK36 versionCode 2
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           node - << 'JS'
@@ -32,13 +32,13 @@ jobs:
           let j=JSON.parse(fs.readFileSync('app.json','utf8'));
           if(j.expo.android && j.expo.android.googleServicesFile) delete j.expo.android.googleServicesFile;
           j.expo.android.package="com.laptimego.fungsui";
-          j.expo.android.versionCode=1;
+          j.expo.android.versionCode=2;
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
           j.expo.plugins=[
             "expo-sensors",
-            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"2.0.21"}}],
+            ["expo-build-properties", {android:{compileSdkVersion:36,targetSdkVersion:36,minSdkVersion:24,buildToolsVersion:"36.0.0",kotlinVersion:"1.9.22"}}],
             ["react-native-google-mobile-ads", {androidAppId:"ca-app-pub-9890149028563226~8454882079", iosAppId:"ca-app-pub-9890149028563226~8454882079"}]
           ];
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
@@ -46,14 +46,13 @@ jobs:
           fs.writeFileSync('google-services.json', g);
           JS
           npm install --legacy-peer-deps
-          echo "module.exports={default:{getConstants:()=>({})}};" > node_modules/react-native-google-mobile-ads/lib/commonjs/NativeGoogleMobileAdsModule.js
 
       - name: Expo prebuild clean
         run: npx expo prebuild --platform android --clean --no-install
         env:
           NODE_ENV: production
 
-      - name: HOTFIX - 刪 dummy gservices 一開唔死
+      - name: HOTFIX SDK36 + kotlin 1.9.22
         run: |
           npm install react-native-google-mobile-ads@15.3.0 --legacy-peer-deps --no-save
           rm -f google-services.json android/app/google-services.json
@@ -62,7 +61,7 @@ jobs:
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           xml=mf.read_text()
           if "com.google.android.gms.ads.APPLICATION_ID" not in xml:
-              xml=xml.replace("</application>", '  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n  </application>')
+              xml=xml.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
               mf.write_text(xml)
           for p in list(pathlib.Path("node_modules").rglob("build.gradle")) + list(pathlib.Path("android").rglob("build.gradle")):
               try:
@@ -83,10 +82,10 @@ jobs:
                   fp.write_text(t)
           gp=pathlib.Path("android/gradle.properties")
           txt=gp.read_text().replace("36.0.0MYAPP","36.0.0\nMYAPP")
-          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=2.0.21', txt)
+          txt=re.sub(r'kotlinVersion.*', 'kotlinVersion=1.9.22', txt)
           if "suppressUnsupportedCompileSdk" not in txt:
-              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=2.0.21\n"
-          gp.write_text(txt.replace("1.9.22","2.0.21").replace("1.9.24","2.0.21"))
+              txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nkotlinVersion=1.9.22\n"
+          gp.write_text(txt.replace("2.0.21","1.9.22"))
           PY
 
       - name: Keystore STONE 40:0C:73
@@ -108,19 +107,19 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}"
           } >> android/gradle.properties
 
-      - name: Build AAB+APK SDK36 versionCode 1
+      - name: Build AAB+APK SDK36 versionCode 2
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
+         ./gradlew bundleRelease assembleRelease --no-daemon -x lintVitalAnalyzeRelease --stacktrace
         env:
           NODE_ENV: production
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: FungSui-Go STONE 40:0C:73 SDK36 v1
+          tag_name: fungsui-v1-api36-v2-${{ github.run_number }}
+          name: FungSui-Go STONE 40:0C:73 SDK36 v2
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
