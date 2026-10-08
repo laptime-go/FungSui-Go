@@ -41,13 +41,8 @@ export default function App() {
         const inter = InterstitialAd.createForAdRequest(INTER_ID, {
           requestNonPersonalizedAdsOnly: true,
         });
-        const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {
-          requestNonPersonalizedAdsOnly: true,
-        });
         interstitialRef.current = inter;
-        appOpenRef.current = appOpen;
 
-        // Interstitial - 安全
         try { inter.load(); } catch(e){}
         listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> {
           if(isMounted.current) setInterLoaded(true);
@@ -66,18 +61,26 @@ export default function App() {
           if(isMounted.current) setInterLoaded(false);
         }));
 
-        // AppOpen - 醫閃退：只 load，絕對唔自動 show
-        try { appOpen.load(); } catch(e){}
-        listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, () => {
-          console.log("appOpen loaded - 唔自動 show，醫不斷停止運作");
-          // 之前你有 setTimeout show()，呢度刪晒，唔會再炸
-        }));
-        listeners.push(appOpen.addAdEventListener(AdEventType.ERROR, (e)=> {
-          console.log("appOpen error", e);
-        }));
-        listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{
-          try{ appOpen.load(); }catch(e){}
-        }));
+        // AppOpen 醫閃退：延遲 3500ms 先 create，絕對唔自動 show
+        setTimeout(()=>{
+          if(!isMounted.current) return;
+          try {
+            const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {
+              requestNonPersonalizedAdsOnly: true,
+            });
+            appOpenRef.current = appOpen;
+            appOpen.load();
+            listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, () => {
+              console.log("appOpen loaded - 唔自動 show，醫不斷停止運作");
+            }));
+            listeners.push(appOpen.addAdEventListener(AdEventType.ERROR, (e)=> {
+              console.log("appOpen error", e);
+            }));
+            listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{
+              try{ appOpen.load(); }catch(e){}
+            }));
+          } catch(e){ console.log("appOpen create fail", e.message); }
+        }, 3500);
 
       } catch(e) {
         console.log("ads init fail", e.message);
@@ -156,7 +159,7 @@ export default function App() {
         </View>
       </ScrollView>
       <View style={styles.ad}>
-        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} onAdFailedToLoad={(e)=>console.log("banner fail", e)} />}
+        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} onAdFailedToLoad={(e)=>console.log("banner fail", e)} />}
       </View>
     </View>
   );
@@ -182,5 +185,5 @@ const styles = StyleSheet.create({
   baziBox:{width:'90%',marginTop:15}, label:{color:'#aaa',fontSize:12},
   input:{backgroundColor:'#222',color:'#fff',padding:10,borderRadius:8,marginTop:6,borderWidth:1,borderColor:'#333'},
   baziRes:{color:'#d4af37',marginTop:10, fontSize:16, fontWeight:'bold'},
-  ad:{position:'absolute',bottom:0,width:'100%'}
+  ad:{position:'absolute',bottom:0,width:'100%', alignItems:'center'}
 });
