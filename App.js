@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity} from 'react-native';
+import {StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, InteractionManager} from 'react-native';
 import { Magnetometer } from 'expo-sensors';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
 
@@ -26,38 +26,49 @@ export default function App() {
   const interstitialRef = useRef(null);
   const appOpenRef = useRef(null);
   const isMounted = useRef(true);
+  const lastHeadingRef = useRef(0);
 
-  // 1. 羅盤單獨一個 Effect，絕對唔掂 ads
+  // 1. 羅盤獨立，最快啟動，節流 120ms 才 setState，唔塞 UI
   useEffect(()=>{
     isMounted.current = true;
     let mSub = null;
-    try {
-      Magnetometer.setUpdateIntervalAsync(150);
-      mSub = Magnetometer.addListener(d=>{
-        if(!isMounted.current) return;
-        let a = Math.atan2(d.y,d.x)*(180/Math.PI);
-        a = 90 - a; if(a < 0) a += 360;
-        setHeading(a);
-      });
-    } catch(e) {}
-    return ()=>{
+    (async()=>{
+      try{
+        await Magnetometer.setUpdateIntervalAsync(120);
+        mSub = Magnetometer.addListener(d=>{
+          if(!isMounted.current) return;
+          let a = Math.atan2(d.y,d.x)*(180/Math.PI);
+          a = 90 - a; if(a<0) a+=360;
+          // 節流：差 1度先更新
+          if(Math.abs(a - lastHeadingRef.current) > 1){
+            lastHeadingRef.current = a;
+            setHeading(a);
+          }
+        });
+      }catch(e){}
+    })();
+    return()=>{
       isMounted.current = false;
-      try { mSub && mSub.remove(); } catch(e){}
+      try{ mSub && mSub.remove(); }catch(e){}
     };
   },[]);
 
-  // 2. 廣告單獨一個 Effect，延遲初始化，醫一開死
+  // 2. 廣告獨立，等 UI 畫完先跑，醫 ANR
   useEffect(()=>{
     let listeners = [];
     let appOpenTimer = null;
-    (async () => {
-      try {
+    const task = InteractionManager.runAfterInteractions(async ()=>{
+      // 再等 1500ms，等羅盤穩定
+      await new Promise(r=>setTimeout(r, 1500));
+      if(!isMounted.current) return;
+      try{
         await mobileAds().initialize();
         if(!isMounted.current) return;
         setAdsReady(true);
-        const inter = InterstitialAd.createForAdRequest(INTER_ID, { requestNonPersonalizedAdsOnly: true });
+
+        const inter = InterstitialAd.createForAdRequest(INTER_ID, {requestNonPersonalizedAdsOnly:true});
         interstitialRef.current = inter;
-        try { inter.load(); } catch(e){}
+        try{ inter.load(); }catch(e){}
         listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> isMounted.current && setInterLoaded(true)));
         listeners.push(inter.addAdEventListener(AdEventType.CLOSED, ()=>{
           if(isMounted.current) setInterLoaded(false);
@@ -68,22 +79,24 @@ export default function App() {
         }));
         listeners.push(inter.addAdEventListener(AdEventType.ERROR, ()=> isMounted.current && setInterLoaded(false)));
 
-        // 醫 AppOpen 閃退：一定要等主線程閒先 create，5.5秒後，唔自動 show
+        // AppOpen 一定要最遲，6秒後先 create，絕對唔自動 show
         appOpenTimer = setTimeout(()=>{
           if(!isMounted.current) return;
-          try {
-            const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, { requestNonPersonalizedAdsOnly: true });
+          try{
+            const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {requestNonPersonalizedAdsOnly:true});
             appOpenRef.current = appOpen;
             appOpen.load();
+            listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, ()=> console.log("appOpen loaded")));
             listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{ try{ appOpen.load(); }catch(e){} }));
-          } catch(e){}
-        }, 5500);
+          }catch(e){}
+        }, 6000);
 
-      } catch(e) {
+      }catch(e){
         if(isMounted.current) setAdsReady(true);
       }
-    })();
-    return ()=>{
+    });
+    return()=>{
+      task.cancel();
       if(appOpenTimer) clearTimeout(appOpenTimer);
       listeners.forEach(fn=>{ try{ fn && fn(); }catch(e){} });
     };
@@ -95,7 +108,7 @@ export default function App() {
     pendingAction.current = type;
     const inter = interstitialRef.current;
     if(inter && interLoaded){
-      try{ inter.show().catch(()=>{ try{ inter.load(); }catch(e){} }); }catch(e){ try{ inter.load(); }catch(err){} }
+      try{ inter.show().catch(()=>{ try{ inter.load(); }catch(e){} }); }catch(e){}
     } else { try{ inter?.load(); }catch(e){} }
   };
 
