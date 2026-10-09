@@ -1,4 +1,4 @@
-name: Build FungSui-Go SDK36 ALL KEEP
+name: Build FungSui-Go SDK36 FIXED
 on: workflow_dispatch
 jobs:
   build:
@@ -10,39 +10,13 @@ jobs:
         with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
-      - name: Install SDK 36
-        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Install deps
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           npm install --legacy-peer-deps
-          rm -rf node_modules/jsc-android android/app/src/main/jniLibs
+          rm -rf node_modules/jsc-android
       - name: Expo prebuild
-        run: npx expo prebuild --platform android --clean --no-install
-      - name: HOTFIX SDK36 KEEP ALL
-        run: |
-          python3 - << 'PY'
-          import pathlib
-          for g in pathlib.Path("android").rglob("build.gradle"):
-              try:
-                  txt=g.read_text()
-                  if "jsc-android" in txt: continue
-                  txt=txt.replace("compileSdkVersion 35","compileSdkVersion 36").replace("targetSdkVersion 35","targetSdkVersion 36").replace("compileSdk 35","compileSdk 36")
-                  if "components.release" in txt:
-                      txt=txt.replace("from components.release",'from components.findByName("release")')
-                  g.write_text(txt)
-              except: pass
-          gp=pathlib.Path("android/gradle.properties")
-          t=gp.read_text()
-          t+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonFinalResIds=false\nkotlinVersion=1.9.25\n"
-          gp.write_text(t)
-          # 修 packagingOptions 避免 SDK36 多 so 崩
-          app_gradle=pathlib.Path("android/app/build.gradle")
-          ag=app_gradle.read_text()
-          if "packagingOptions" not in ag:
-              ag=ag.replace("android {", "android {\n packagingOptions { pickFirst '**/libjsc.so'; pickFirst '**/libc++_shared.so' }\n")
-              app_gradle.write_text(ag)
-          PY
+        run: npx expo prebuild --platform android --clean
       - name: Keystore
         run: |
           mkdir -p android/app
@@ -59,11 +33,11 @@ jobs:
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
       - name: Build SDK36
-        run: cd android; chmod +x gradlew;./gradlew bundleRelease assembleRelease --no-daemon -x lint --stacktrace
+        run: cd android; chmod +x gradlew;./gradlew bundleRelease assembleRelease --no-daemon -x lint
       - name: Upload
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-sdk36-allkeep-${{ github.run_number }}
+          tag_name: fungsui-sdk36-fixed-${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
