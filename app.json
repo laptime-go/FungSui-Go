@@ -6,11 +6,11 @@
     "orientation": "portrait",
     "icon": "./icon.jpg",
     "userInterfaceStyle": "light",
-    "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
     "jsEngine": "hermes",
+    "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 8,
+      "versionCode": 10,
       "compileSdkVersion": 36,
       "targetSdkVersion": 36,
       "minSdkVersion": 24,
