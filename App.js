@@ -23,7 +23,6 @@ export default function App(){
   const isMounted=useRef(true);
   const lastH=useRef(0);
 
-  // 羅盤獨立，最快起，唔塞 UI
   useEffect(()=>{
     isMounted.current=true;
     let mSub=null;
@@ -41,7 +40,6 @@ export default function App(){
     return()=>{ isMounted.current=false; try{mSub&&mSub.remove();}catch(e){}};
   },[]);
 
-  // 廣告延時 3000ms，唔用 InteractionManager，避免 SDK36 死鎖
   useEffect(()=>{
     let ls=[]; let t1=null; let t2=null;
     t1=setTimeout(async()=>{
@@ -62,15 +60,13 @@ export default function App(){
           pendingAction.current=null;
         }));
         ls.push(inter.addAdEventListener(AdEventType.ERROR,()=> isMounted.current && setInterLoaded(false)));
-
-        // AppOpen 一定要最遲 15秒後先 create，SDK36 否則一開死
         t2=setTimeout(()=>{
           if(!isMounted.current) return;
           try{
             const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
             appOpenRef.current=appOpen;
             appOpen.load();
-            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,(e)=>console.log("appOpen error",e)));
+            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,(e)=>console.log(e)));
             ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ try{appOpen.load();}catch(e){}}));
           }catch(e){}
         }, 15000);
@@ -85,10 +81,7 @@ export default function App(){
     pendingAction.current=type;
     const inter=interstitialRef.current;
     if(inter&&interLoaded){ try{inter.show();}catch(e){} }
-    else {
-      try{inter?.load();}catch(e){}
-      if(type==='bazi') setBaziUnlocked(true); // 無廣告都解鎖，唔卡死
-    }
+    else { try{inter?.load();}catch(e){} if(type==='bazi') setBaziUnlocked(true); }
   };
 
   const getMountain=()=>MOUNTAINS_24[Math.floor((heading+7.5)/15)%24];
@@ -116,7 +109,7 @@ export default function App(){
         </View>
         <View style={styles.nativeBox}>
           <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          {adsReady&&<BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={(e)=>console.log("native fail",e)} />}
+          {adsReady&&<BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={(e)=>console.log("native fail")} />}
         </View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
