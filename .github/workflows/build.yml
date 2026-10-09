@@ -26,32 +26,27 @@ jobs:
         run: |
           rm -f google-services.json android/app/google-services.json
           python3 - << 'PY'
-          import pathlib
-          # 1. Manifest 加 APPLICATION_ID
+          import pathlib, re
           mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           s=mf.read_text()
           if "APPLICATION_ID" not in s:
               s=s.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
               mf.write_text(s)
-          # 2. 強制所有子項目用 36 + kotlin 2.0.21
           for g in pathlib.Path("android").rglob("build.gradle"):
               try:
                   c=g.read_text()
                   c=c.replace("compileSdkVersion 35","compileSdkVersion 36").replace("targetSdkVersion 35","targetSdkVersion 36").replace("compileSdk 35","compileSdk 36")
                   c=c.replace("buildToolsVersion \"35","buildToolsVersion \"36.0.0")
-                  # 修 components.release 導致 build 失敗
                   if "components.release" in c:
                       c=c.replace("from components.release",'from components.findByName("release")')
                   g.write_text(c)
               except: pass
-          # 3. gradle.properties
           gp=pathlib.Path("android/gradle.properties")
           t=gp.read_text()
-          if "suppressUnsupportedCompileSdk" not in t:
-              t+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonFinalResIds=false\nkotlinVersion=2.0.21\n"
-          t=t.replace("1.9.22","2.0.21").replace("1.9.24","2.0.21")
+          # 去重 kotlinVersion
+          t=re.sub(r'kotlinVersion=.*\n', '', t)
+          t+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonFinalResIds=false\nkotlinVersion=2.0.21\n"
           gp.write_text(t)
-          # 4. 刪 gms plugin
           for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
               if fp.exists():
                   txt=fp.read_text()
