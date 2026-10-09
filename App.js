@@ -19,7 +19,6 @@ export default function App(){
   const lastAdTime=useRef(0);
   const pendingAction=useRef(null);
   const interstitialRef=useRef(null);
-  const appOpenRef=useRef(null);
   const isMounted=useRef(true);
   const lastH=useRef(0);
 
@@ -60,18 +59,18 @@ export default function App(){
           pendingAction.current=null;
         }));
         ls.push(inter.addAdEventListener(AdEventType.ERROR,()=> isMounted.current && setInterLoaded(false)));
+        // AppOpen 最遲 20秒先建立，解決你條片一開就停止運作
         t2=setTimeout(()=>{
           if(!isMounted.current) return;
           try{
             const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
-            appOpenRef.current=appOpen;
             appOpen.load();
-            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,(e)=>console.log(e)));
+            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,(e)=>{}));
             ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ try{appOpen.load();}catch(e){}}));
           }catch(e){}
-        }, 15000);
+        }, 20000);
       }catch(e){ if(isMounted.current) setAdsReady(true);}
-    },3000);
+    },4000);
     return()=>{ if(t1) clearTimeout(t1); if(t2) clearTimeout(t2); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
   },[]);
 
@@ -109,7 +108,7 @@ export default function App(){
         </View>
         <View style={styles.nativeBox}>
           <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          {adsReady&&<BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={(e)=>console.log("native fail")} />}
+          {adsReady&&<BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={()=>{}} />}
         </View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
