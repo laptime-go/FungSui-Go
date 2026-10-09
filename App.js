@@ -27,69 +27,12 @@ export default function App() {
   const appOpenRef = useRef(null);
   const isMounted = useRef(true);
 
+  // 1. 羅盤單獨一個 Effect，絕對唔掂 ads
   useEffect(()=>{
     isMounted.current = true;
     let mSub = null;
-    const listeners = [];
-
-    (async () => {
-      try {
-        await mobileAds().initialize();
-        if(!isMounted.current) return;
-        setAdsReady(true);
-
-        const inter = InterstitialAd.createForAdRequest(INTER_ID, {
-          requestNonPersonalizedAdsOnly: true,
-        });
-        interstitialRef.current = inter;
-
-        try { inter.load(); } catch(e){}
-        listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> {
-          if(isMounted.current) setInterLoaded(true);
-        }));
-        listeners.push(inter.addAdEventListener(AdEventType.CLOSED, ()=>{
-          if(isMounted.current) setInterLoaded(false);
-          try{ inter.load(); }catch(e){}
-          lastAdTime.current = Date.now();
-          if(pendingAction.current === 'bazi'){
-            if(isMounted.current) setBaziUnlocked(true);
-          }
-          pendingAction.current = null;
-        }));
-        listeners.push(inter.addAdEventListener(AdEventType.ERROR, (err)=>{
-          console.log("inter error", err);
-          if(isMounted.current) setInterLoaded(false);
-        }));
-
-        // AppOpen 醫閃退：延遲 3500ms 先 create，絕對唔自動 show
-        setTimeout(()=>{
-          if(!isMounted.current) return;
-          try {
-            const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, {
-              requestNonPersonalizedAdsOnly: true,
-            });
-            appOpenRef.current = appOpen;
-            appOpen.load();
-            listeners.push(appOpen.addAdEventListener(AdEventType.LOADED, () => {
-              console.log("appOpen loaded - 唔自動 show，醫不斷停止運作");
-            }));
-            listeners.push(appOpen.addAdEventListener(AdEventType.ERROR, (e)=> {
-              console.log("appOpen error", e);
-            }));
-            listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{
-              try{ appOpen.load(); }catch(e){}
-            }));
-          } catch(e){ console.log("appOpen create fail", e.message); }
-        }, 3500);
-
-      } catch(e) {
-        console.log("ads init fail", e.message);
-        if(isMounted.current) setAdsReady(true);
-      }
-    })();
-
     try {
-      Magnetometer.setUpdateInterval(100);
+      Magnetometer.setUpdateIntervalAsync(150);
       mSub = Magnetometer.addListener(d=>{
         if(!isMounted.current) return;
         let a = Math.atan2(d.y,d.x)*(180/Math.PI);
@@ -97,11 +40,52 @@ export default function App() {
         setHeading(a);
       });
     } catch(e) {}
-
     return ()=>{
       isMounted.current = false;
-      listeners.forEach(fn=>{ try{ fn && fn(); }catch(e){} });
       try { mSub && mSub.remove(); } catch(e){}
+    };
+  },[]);
+
+  // 2. 廣告單獨一個 Effect，延遲初始化，醫一開死
+  useEffect(()=>{
+    let listeners = [];
+    let appOpenTimer = null;
+    (async () => {
+      try {
+        await mobileAds().initialize();
+        if(!isMounted.current) return;
+        setAdsReady(true);
+        const inter = InterstitialAd.createForAdRequest(INTER_ID, { requestNonPersonalizedAdsOnly: true });
+        interstitialRef.current = inter;
+        try { inter.load(); } catch(e){}
+        listeners.push(inter.addAdEventListener(AdEventType.LOADED, ()=> isMounted.current && setInterLoaded(true)));
+        listeners.push(inter.addAdEventListener(AdEventType.CLOSED, ()=>{
+          if(isMounted.current) setInterLoaded(false);
+          try{ inter.load(); }catch(e){}
+          lastAdTime.current = Date.now();
+          if(pendingAction.current === 'bazi' && isMounted.current) setBaziUnlocked(true);
+          pendingAction.current = null;
+        }));
+        listeners.push(inter.addAdEventListener(AdEventType.ERROR, ()=> isMounted.current && setInterLoaded(false)));
+
+        // 醫 AppOpen 閃退：一定要等主線程閒先 create，5.5秒後，唔自動 show
+        appOpenTimer = setTimeout(()=>{
+          if(!isMounted.current) return;
+          try {
+            const appOpen = AppOpenAd.createForAdRequest(OPEN_ID, { requestNonPersonalizedAdsOnly: true });
+            appOpenRef.current = appOpen;
+            appOpen.load();
+            listeners.push(appOpen.addAdEventListener(AdEventType.CLOSED, ()=>{ try{ appOpen.load(); }catch(e){} }));
+          } catch(e){}
+        }, 5500);
+
+      } catch(e) {
+        if(isMounted.current) setAdsReady(true);
+      }
+    })();
+    return ()=>{
+      if(appOpenTimer) clearTimeout(appOpenTimer);
+      listeners.forEach(fn=>{ try{ fn && fn(); }catch(e){} });
     };
   },[]);
 
@@ -111,14 +95,8 @@ export default function App() {
     pendingAction.current = type;
     const inter = interstitialRef.current;
     if(inter && interLoaded){
-      try{
-        inter.show().catch(()=>{ try{ inter.load(); }catch(e){} });
-      }catch(e){
-        try{ inter.load(); }catch(err){}
-      }
-    } else {
-      try{ inter?.load(); }catch(e){}
-    }
+      try{ inter.show().catch(()=>{ try{ inter.load(); }catch(e){} }); }catch(e){ try{ inter.load(); }catch(err){} }
+    } else { try{ inter?.load(); }catch(e){} }
   };
 
   const getMountain = () => { const index = Math.floor((heading + 7.5) / 15) % 24; return MOUNTAINS_24[index]; };
@@ -146,7 +124,7 @@ export default function App() {
         </View>
         <View style={styles.nativeBox}>
           <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          {adsReady && <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={(e)=>console.log("native fail", e)} />}
+          {adsReady && <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />}
         </View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
@@ -159,7 +137,7 @@ export default function App() {
         </View>
       </ScrollView>
       <View style={styles.ad}>
-        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} onAdFailedToLoad={(e)=>console.log("banner fail", e)} />}
+        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}
       </View>
     </View>
   );
