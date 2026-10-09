@@ -45,7 +45,6 @@ export default function App(){
     let ls=[]; let t1=null; let t2=null;
     const sub=AppState.addEventListener('change', next=>{
       if(appState.current.match(/inactive|background/) && next==='active'){
-        // 人地都係咁，返嚟先 show AppOpen，唔係一開就 show
         try{ appOpenRef.current && appOpenRef.current.show(); }catch(e){}
       }
       appState.current=next;
@@ -76,12 +75,13 @@ export default function App(){
             const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
             appOpenRef.current=appOpen;
             appOpen.load();
+            ls.push(appOpen.addAdEventListener(AdEventType.LOADED,()=>{ try{appOpen.show();}catch(e){} }));
             ls.push(appOpen.addAdEventListener(AdEventType.ERROR,()=>{}));
             ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ try{appOpen.load();}catch(e){}}));
           }catch(e){}
-        }, 15000);
+        }, 1000);
       }catch(e){ if(isMounted.current) setAdsReady(true);}
-    },3000);
+    },500);
 
     return()=>{ clearTimeout(t1); clearTimeout(t2); sub.remove(); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
   },[]);
@@ -105,7 +105,7 @@ export default function App(){
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{alignItems:'center', paddingBottom:120}}>
         <Text style={styles.title}>風水佬Go - {Math.round(heading)}°</Text>
-        <Text style={styles.sub}>2026丙午年・SDK36上架版 STONE 40:0C:73 {adsReady?'':'(廣告初始化中)'}</Text>
+        <Text style={styles.sub}>2026丙午年・SDK36秒出版 STONE 40:0C:73 {adsReady?'':'(廣告初始化中)'}</Text>
         <View style={styles.tungBox}><Text style={styles.tungText}>今日 {new Date().toLocaleDateString('zh-HK')} | 煞東 沖兔</Text></View>
         <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}><Text style={styles.n}>▲北 {getMountain()}山</Text></View>
         <View style={[styles.resultBox,isWealth&&styles.wealthBox]}>
