@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity} from 'react-native';
+import {StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, AppState} from 'react-native';
 import { Magnetometer } from 'expo-sensors';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
 
@@ -19,8 +19,10 @@ export default function App(){
   const lastAdTime=useRef(0);
   const pendingAction=useRef(null);
   const interstitialRef=useRef(null);
+  const appOpenRef=useRef(null);
   const isMounted=useRef(true);
   const lastH=useRef(0);
+  const appState=useRef(AppState.currentState);
 
   useEffect(()=>{
     isMounted.current=true;
@@ -41,6 +43,14 @@ export default function App(){
 
   useEffect(()=>{
     let ls=[]; let t1=null; let t2=null;
+    const sub=AppState.addEventListener('change', next=>{
+      if(appState.current.match(/inactive|background/) && next==='active'){
+        // 人地都係咁，返嚟先 show AppOpen，唔係一開就 show
+        try{ appOpenRef.current && appOpenRef.current.show(); }catch(e){}
+      }
+      appState.current=next;
+    });
+
     t1=setTimeout(async()=>{
       if(!isMounted.current) return;
       try{
@@ -49,7 +59,7 @@ export default function App(){
         setAdsReady(true);
         const inter=InterstitialAd.createForAdRequest(INTER_ID,{requestNonPersonalizedAdsOnly:true});
         interstitialRef.current=inter;
-        try{inter.load();}catch(e){}
+        inter.load();
         ls.push(inter.addAdEventListener(AdEventType.LOADED,()=> isMounted.current && setInterLoaded(true)));
         ls.push(inter.addAdEventListener(AdEventType.CLOSED,()=>{
           if(isMounted.current) setInterLoaded(false);
@@ -59,19 +69,21 @@ export default function App(){
           pendingAction.current=null;
         }));
         ls.push(inter.addAdEventListener(AdEventType.ERROR,()=> isMounted.current && setInterLoaded(false)));
-        // AppOpen 最遲 20秒先建立，解決你條片一開就停止運作
+
         t2=setTimeout(()=>{
           if(!isMounted.current) return;
           try{
             const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
+            appOpenRef.current=appOpen;
             appOpen.load();
-            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,(e)=>{}));
+            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,()=>{}));
             ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ try{appOpen.load();}catch(e){}}));
           }catch(e){}
-        }, 20000);
+        }, 15000);
       }catch(e){ if(isMounted.current) setAdsReady(true);}
-    },4000);
-    return()=>{ if(t1) clearTimeout(t1); if(t2) clearTimeout(t2); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
+    },3000);
+
+    return()=>{ clearTimeout(t1); clearTimeout(t2); sub.remove(); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
   },[]);
 
   const showAd=(type)=>{
@@ -79,7 +91,7 @@ export default function App(){
     if(now-lastAdTime.current<60000&&type!=='bazi') return;
     pendingAction.current=type;
     const inter=interstitialRef.current;
-    if(inter&&interLoaded){ try{inter.show();}catch(e){} }
+    if(inter&&interLoaded){ try{inter.show();}catch(e){ if(type==='bazi') setBaziUnlocked(true);} }
     else { try{inter?.load();}catch(e){} if(type==='bazi') setBaziUnlocked(true); }
   };
 
