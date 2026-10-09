@@ -1,4 +1,4 @@
-name: Build FungSui-Go SDK36 NO CRASH
+name: Build FungSui-Go SDK36 NOCRASH FINAL
 on: workflow_dispatch
 jobs:
   build:
@@ -16,41 +16,29 @@ jobs:
         run: |
           rm -rf node_modules android package-lock.json google-services.json
           npm install --legacy-peer-deps
-          rm -rf node_modules/jsc-android android/app/src/main/jniLibs
+          rm -rf node_modules/jsc-android
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean --no-install
-      - name: HOTFIX SDK36 NOCRASH
+      - name: HOTFIX SDK36
         run: |
-          rm -f google-services.json android/app/google-services.json
           python3 - << 'PY'
-          import pathlib, re
-          mf=pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          s=mf.read_text()
-          if "APPLICATION_ID" not in s:
-              s=s.replace("</application>", ' <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-9890149028563226~8454882079"/>\n </application>')
-              mf.write_text(s)
+          import pathlib
           for g in pathlib.Path("android").rglob("build.gradle"):
               try:
-                  if "jsc-android" in str(g): continue
-                  c=g.read_text()
-                  c=c.replace("compileSdkVersion 35","compileSdkVersion 36").replace("targetSdkVersion 35","targetSdkVersion 36").replace("compileSdk 35","compileSdk 36")
-                  c=c.replace('buildToolsVersion "35','buildToolsVersion "36.0.0')
-                  if "components.release" in c:
-                      c=c.replace("from components.release",'from components.findByName("release")')
-                  g.write_text(c)
+                  t=g.read_text()
+                  if "jsc-android" in t: 
+                      continue
+                  t=t.replace("compileSdkVersion 35","compileSdkVersion 36").replace("targetSdkVersion 35","targetSdkVersion 36").replace("compileSdk 35","compileSdk 36")
+                  if "components.release" in t:
+                      t=t.replace("from components.release",'from components.findByName("release")')
+                  g.write_text(t)
               except: pass
           gp=pathlib.Path("android/gradle.properties")
-          t=gp.read_text()
-          t=re.sub(r'kotlinVersion=.*\n', '', t)
-          t=re.sub(r'android\.suppressUnsupportedCompileSdk=.*\n', '', t)
-          t+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\nandroid.nonFinalResIds=false\nkotlinVersion=1.9.25\n"
-          gp.write_text(t)
-          for fp in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/build.gradle")]:
-              if fp.exists():
-                  txt=fp.read_text()
-                  txt=txt.replace("apply plugin: 'com.google.gms.google-services'","// removed").replace('apply plugin: "com.google.gms.google-services"',"// removed")
-                  fp.write_text(txt)
+          txt=gp.read_text()
+          txt+="\nandroid.suppressUnsupportedCompileSdk=36\nnewArchEnabled=false\norg.gradle.jvmargs=-Xmx4096m\n"
+          gp.write_text(txt)
           PY
+          rm -rf android/app/src/main/jniLibs
       - name: Keystore
         run: |
           mkdir -p android/app
@@ -67,11 +55,11 @@ jobs:
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
       - name: Build SDK36
-        run: cd android; chmod +x gradlew;./gradlew bundleRelease assembleRelease --no-daemon -x lint
+        run: cd android; chmod +x gradlew; ./gradlew bundleRelease assembleRelease --no-daemon -x lint --stacktrace
       - name: Upload
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-sdk36-nocrash-${{ github.run_number }}
+          tag_name: fungsui-sdk36-final-${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
