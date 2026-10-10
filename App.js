@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Linking, Share } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
+import * as Location from 'expo-location';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -55,37 +56,53 @@ export default function App(){
   const [unlockedBazi,setUnlockedBazi]=useState(false); const [unlockedCai,setUnlockedCai]=useState(false);
   const [needCalib,setNeedCalib]=useState(false); const [lastInterTime,setLastInterTime]=useState(0);
   const interRef=useRef(null); const lastRaw=useRef(0);
-  const accData=useRef({x:0,y:0,z:0}); const magData=useRef({x:0,y:0,z:0});
+  const accData=useRef({x:0,y:0,z:0});
 
-  // 核心修正：磁力+加速融合，解決0°卡死
+  // 核心修正：Location主 + Magnetometer後備，解決0°卡死，不刪任何野
   useEffect(()=>{
-    let magSub, accSub;
+    let magSub, accSub, locSub;
     (async()=>{
+      // 1. 先試真北羅盤，一定會轉
+      try{
+        const {status} = await Location.requestForegroundPermissionsAsync();
+        if(status==='granted'){
+          locSub = await Location.watchHeadingAsync((h)=>{
+            let a = h.trueHeading!== -1 && h.trueHeading!==0? h.trueHeading : h.magHeading;
+            if(a<0) a+=360;
+            if(a===0 && h.magHeading===0) return;
+            let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
+            if(Math.abs(diff)>0.3){ lastRaw.current=(lastRaw.current+diff*0.25+360)%360; setHeading(Math.round(lastRaw.current)); setNeedCalib(false); }
+          });
+        }
+      }catch{}
+
+      // 2. 後備：原有磁力+加速融合，保留你原本邏輯
       const avail = await Magnetometer.isAvailableAsync();
-      if(!avail){ setNeedCalib(true); return; }
-      await Magnetometer.setUpdateIntervalAsync(100);
-      await Accelerometer.setUpdateIntervalAsync(100);
-      accSub = Accelerometer.addListener((data)=>{ accData.current=data; });
-      magSub = Magnetometer.addListener((data)=>{
-        magData.current=data;
-        const {x,y,z} = data;
-        const {x:ax,y:ay,z:az} = accData.current;
-        // 傾角補償計算
-        const roll = Math.atan2(ay, az);
-        const pitch = Math.atan2(-ax, Math.sqrt(ay*ay+az*az));
-        const mx = x*Math.cos(pitch)+z*Math.sin(pitch);
-        const my = x*Math.sin(roll)*Math.sin(pitch)+y*Math.cos(roll)-z*Math.sin(roll)*Math.cos(pitch);
-        let a = Math.atan2(-my, mx)*180/Math.PI;
-        a = (a+360)%360;
-        const magStrength = Math.sqrt(x*x+y*y+z*z);
-        setNeedCalib(magStrength<25||magStrength>65);
-        let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
-        if(Math.abs(diff)>0.5){ lastRaw.current=(lastRaw.current+diff*0.2+360)%360; setHeading(Math.round(lastRaw.current)); }
-      });
+      if(avail){
+        await Magnetometer.setUpdateIntervalAsync(100);
+        await Accelerometer.setUpdateIntervalAsync(100);
+        accSub = Accelerometer.addListener((data)=>{ accData.current=data; });
+        magSub = Magnetometer.addListener((data)=>{
+          if(locSub) return; // 如果Location已經有，就唔用磁力計，防衝突
+          const {x,y,z} = data;
+          const {x:ax,y:ay,z:az} = accData.current;
+          const roll = Math.atan2(ay, az);
+          const pitch = Math.atan2(-ax, Math.sqrt(ay*ay+az*az));
+          const mx = x*Math.cos(pitch)+z*Math.sin(pitch);
+          const my = x*Math.sin(roll)*Math.sin(pitch)+y*Math.cos(roll)-z*Math.sin(roll)*Math.cos(pitch);
+          let a = Math.atan2(-my, mx)*180/Math.PI;
+          a = (a+360)%360;
+          const magStrength = Math.sqrt(x*x+y*y+z*z);
+          setNeedCalib(magStrength<25||magStrength>65);
+          let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
+          if(Math.abs(diff)>0.5){ lastRaw.current=(lastRaw.current+diff*0.2+360)%360; setHeading(Math.round(lastRaw.current)); }
+        });
+      }
       const saved=await AsyncStorage.getItem('bazi_v1'); if(saved) setBaziInput(saved);
     })();
-    return()=>{magSub?.remove(); accSub?.remove();};
+    return()=>{magSub?.remove(); accSub?.remove(); locSub?.remove();};
   },[]);
+
   useEffect(()=>{ const t=setInterval(()=>{ let d=heading-smooth; if(Math.abs(d)>180)d=d>0?d-360:d+360; if(Math.abs(d)>0.1)setSmooth(s=>(s+d*0.12+360)%360); },16); return()=>clearInterval(t); },[heading,smooth]);
 
   useEffect(()=>{
@@ -111,12 +128,12 @@ export default function App(){
       <View style={s.container}>
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:45,paddingBottom:130}}>
           <Text style={s.title}>設定</Text><Text style={s.sub}>風水佬Go v1.0 (1) • 已修復0°問題</Text>
-          <View style={s.setCard}><Text style={s.setT}>羅盤校準 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}°`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦{'\n'}如片中卡在0°，請平放裝置畫8字校準，直到度數會轉。</Text>
-            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','1. 平放手機\n2. 空中畫8字5次\n3. 直到度數跟住轉')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
+          <View style={s.setCard}><Text style={s.setT}>羅盤校準 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}°`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦{'\n'}如片中卡在0°，已改用真北羅盤，轉手機即刻轉。</Text>
+            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','1. 平放手機\n2. 空中畫8字5次\n3. 去空曠地方試')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
           </View>
           <View style={s.setCard}><Text style={s.setT}>資料</Text><Text style={s.setD}>生日：{baziInput||'未設定'}</Text>
-            <TouchableOpacity style={s.darkBtn} onPress={async()=>{ if(baziInput) await AsyncStorage.setItem('bazi_v1',baziInput); }}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async()=>{await AsyncStorage.clear(); setBaziInput('');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity>
+            <TouchableOpacity style={s.darkBtn} onPress={async()=>{ if(baziInput) {await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); } }}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async()=>{await AsyncStorage.clear(); setBaziInput(''); setBaziRes(null);}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity>
           </View>
           <View style={s.setCard}><Text style={s.setT}>關於</Text><Text style={s.setD}>v1.0 (1) • API36 • 僅供參考{'\n'}套件 com.laptimego.fungsui</Text>
             <TouchableOpacity style={s.darkBtn} onPress={()=>Share.share({message:'風水佬Go'})}><Text style={s.darkBtnText}>分享</Text></TouchableOpacity>
