@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Linking, Share } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import * as Location from 'expo-location';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -38,13 +37,14 @@ function calcBazi(dateStr){
     const d=new Date(dateStr); if(isNaN(d)) return null;
     const stems=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
     const y=d.getFullYear(); const m=d.getMonth()+1; const day=d.getDate();
-    const yearStem=stems[(y-4)%10]; const dayStem=stems[(y*5+m*3+day)%10];
+    const yearStem=stems[(y-4)%10];
+    const dayStem=stems[(day+y+m)%10];
     const map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
-    const five={木:0,火:0,土:0,金:0,水:0}; [yearStem,dayStem].forEach(s=>{ if(map[s]) five[map[s]]++; });
-    five.火+=1;
+    const five={木:1,火:1,土:1,金:1,水:1};
+    five[map[yearStem]]++; five[map[dayStem]]++;
     let weak=Object.entries(five).sort((a,b)=>a[1]-b[1])[0][0];
     let luckyMap={木:"火 正南 紅色",火:"土 西南 黃色",土:"金 正西 白色",金:"水 正北 黑色",水:"木 正東 綠色"};
-    return {yearStem, dayStem, fiveCount:five, xi:weak, luckyDir:luckyMap[weak], full:`${y}年 ${yearStem}日主 - 日干${dayStem}`};
+    return {yearStem, dayStem, fiveCount:five, xi:weak, luckyDir:luckyMap[weak], full:`${y}年 ${yearStem}命 日主${dayStem}`};
   }catch{ return null; }
 }
 
@@ -56,54 +56,37 @@ export default function App(){
   const [unlockedBazi,setUnlockedBazi]=useState(false); const [unlockedCai,setUnlockedCai]=useState(false);
   const [needCalib,setNeedCalib]=useState(false); const [lastInterTime,setLastInterTime]=useState(0);
   const interRef=useRef(null); const lastRaw=useRef(0);
-  const accData=useRef({x:0,y:0,z:0});
+  const accData=useRef({x:0,y:0,z:0}); const magData=useRef({x:0,y:0,z:0});
 
-  // 核心修正：Location主 + Magnetometer後備，解決0°卡死，不刪任何野
   useEffect(()=>{
-    let magSub, accSub, locSub;
+    let magSub, accSub;
     (async()=>{
-      // 1. 先試真北羅盤，一定會轉
-      try{
-        const {status} = await Location.requestForegroundPermissionsAsync();
-        if(status==='granted'){
-          locSub = await Location.watchHeadingAsync((h)=>{
-            let a = h.trueHeading!== -1 && h.trueHeading!==0? h.trueHeading : h.magHeading;
-            if(a<0) a+=360;
-            if(a===0 && h.magHeading===0) return;
-            let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
-            if(Math.abs(diff)>0.3){ lastRaw.current=(lastRaw.current+diff*0.25+360)%360; setHeading(Math.round(lastRaw.current)); setNeedCalib(false); }
-          });
-        }
-      }catch{}
-
-      // 2. 後備：原有磁力+加速融合，保留你原本邏輯
       const avail = await Magnetometer.isAvailableAsync();
-      if(avail){
-        await Magnetometer.setUpdateIntervalAsync(100);
-        await Accelerometer.setUpdateIntervalAsync(100);
-        accSub = Accelerometer.addListener((data)=>{ accData.current=data; });
-        magSub = Magnetometer.addListener((data)=>{
-          if(locSub) return; // 如果Location已經有，就唔用磁力計，防衝突
-          const {x,y,z} = data;
-          const {x:ax,y:ay,z:az} = accData.current;
-          const roll = Math.atan2(ay, az);
-          const pitch = Math.atan2(-ax, Math.sqrt(ay*ay+az*az));
-          const mx = x*Math.cos(pitch)+z*Math.sin(pitch);
-          const my = x*Math.sin(roll)*Math.sin(pitch)+y*Math.cos(roll)-z*Math.sin(roll)*Math.cos(pitch);
-          let a = Math.atan2(-my, mx)*180/Math.PI;
-          a = (a+360)%360;
-          const magStrength = Math.sqrt(x*x+y*y+z*z);
-          setNeedCalib(magStrength<25||magStrength>65);
-          let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
-          if(Math.abs(diff)>0.5){ lastRaw.current=(lastRaw.current+diff*0.2+360)%360; setHeading(Math.round(lastRaw.current)); }
-        });
-      }
+      if(!avail){ setNeedCalib(true); return; }
+      await Magnetometer.setUpdateIntervalAsync(80);
+      await Accelerometer.setUpdateIntervalAsync(80);
+      accSub = Accelerometer.addListener((data)=>{ accData.current=data; });
+      magSub = Magnetometer.addListener((data)=>{
+        magData.current=data;
+        const {x,y,z} = data;
+        const {x:ax,y:ay,z:az} = accData.current;
+        const roll = Math.atan2(ay, az);
+        const pitch = Math.atan2(-ax, Math.sqrt(ay*ay+az*az));
+        const mx = x*Math.cos(pitch)+z*Math.sin(pitch);
+        const my = x*Math.sin(roll)*Math.sin(pitch)+y*Math.cos(roll)-z*Math.sin(roll)*Math.cos(pitch);
+        let a = Math.atan2(-my, mx)*180/Math.PI;
+        a = (a+360)%360;
+        const magStrength = Math.sqrt(x*x+y*y+z*z);
+        setNeedCalib(magStrength<20||magStrength>70);
+        let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
+        lastRaw.current=(lastRaw.current+diff*0.15+360)%360;
+        setHeading(Math.round(lastRaw.current));
+      });
       const saved=await AsyncStorage.getItem('bazi_v1'); if(saved) setBaziInput(saved);
     })();
-    return()=>{magSub?.remove(); accSub?.remove(); locSub?.remove();};
+    return()=>{magSub?.remove(); accSub?.remove();};
   },[]);
-
-  useEffect(()=>{ const t=setInterval(()=>{ let d=heading-smooth; if(Math.abs(d)>180)d=d>0?d-360:d+360; if(Math.abs(d)>0.1)setSmooth(s=>(s+d*0.12+360)%360); },16); return()=>clearInterval(t); },[heading,smooth]);
+  useEffect(()=>{ const t=setInterval(()=>{ let d=heading-smooth; if(Math.abs(d)>180)d=d>0?d-360:d+360; if(Math.abs(d)>0.05)setSmooth(s=>(s+d*0.1+360)%360); },16); return()=>clearInterval(t); },[heading,smooth]);
 
   useEffect(()=>{
     const tm=setTimeout(async()=>{
@@ -127,16 +110,13 @@ export default function App(){
     return (
       <View style={s.container}>
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:45,paddingBottom:130}}>
-          <Text style={s.title}>設定</Text><Text style={s.sub}>風水佬Go v1.0 (1) • 已修復0°問題</Text>
-          <View style={s.setCard}><Text style={s.setT}>羅盤校準 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}°`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦{'\n'}如片中卡在0°，已改用真北羅盤，轉手機即刻轉。</Text>
-            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','1. 平放手機\n2. 空中畫8字5次\n3. 去空曠地方試')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
+          <Text style={s.title}>設定</Text><Text style={s.sub}>風水佬Go v1.0 (1) • API34 SDK51 穩定版</Text>
+          <View style={s.setCard}><Text style={s.setT}>羅盤校準 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}°`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦{'\n'}請平放裝置，畫8字校準。</Text>
+            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','1. 平放手機\n2. 空中畫8字5次\n3. 直到度數跟住轉')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
           </View>
           <View style={s.setCard}><Text style={s.setT}>資料</Text><Text style={s.setD}>生日：{baziInput||'未設定'}</Text>
-            <TouchableOpacity style={s.darkBtn} onPress={async()=>{ if(baziInput) {await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); } }}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async()=>{await AsyncStorage.clear(); setBaziInput(''); setBaziRes(null);}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity>
-          </View>
-          <View style={s.setCard}><Text style={s.setT}>關於</Text><Text style={s.setD}>v1.0 (1) • API36 • 僅供參考{'\n'}套件 com.laptimego.fungsui</Text>
-            <TouchableOpacity style={s.darkBtn} onPress={()=>Share.share({message:'風水佬Go'})}><Text style={s.darkBtnText}>分享</Text></TouchableOpacity>
+            <TouchableOpacity style={s.darkBtn} onPress={async()=>{ if(baziInput) await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async()=>{await AsyncStorage.clear(); setBaziInput('');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity>
           </View>
         </ScrollView>
         <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={()=>setTab('compass')}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('bazi')}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
@@ -151,8 +131,8 @@ export default function App(){
           <Text style={s.title}>八字參考</Text>
           <View style={[s.card,{width:'92%'}]}>
             <TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
-            <TouchableOpacity style={s.goldBtn} onPress={()=>{ const r=calcBazi(baziInput); if(!r) setBaziRes({error:"格式錯誤"}); else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(()=>setUnlockedBazi(true)); } }}><Text style={s.goldBtnText}>查看分析</Text></TouchableOpacity>
-            {baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error||`${baziRes.full} 喜${baziRes.xi} 宜${baziRes.luckyDir}`}</Text></View>}
+            <TouchableOpacity style={s.goldBtn} onPress={()=>{ const r=calcBazi(baziInput); if(!r) setBaziRes({error:"格式錯誤 YYYY-MM-DD"}); else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(()=>setUnlockedBazi(true)); } }}><Text style={s.goldBtnText}>查看分析</Text></TouchableOpacity>
+            {baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error||`${baziRes.full}\n喜${baziRes.xi} 宜${baziRes.luckyDir}\n五行 ${JSON.stringify(baziRes.fiveCount)}`}</Text></View>}
           </View>
           <View style={s.nativeBox}>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
@@ -165,7 +145,7 @@ export default function App(){
   return (
     <View style={s.container}>
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:140, paddingTop:35}}>
-        <Text style={s.title}>風水佬Go {Math.round(smooth)}° {adsReady?'✓':''} {needCalib?'需校準':''}</Text>
+        <Text style={s.title}>風水佬Go {Math.round(smooth)}° {adsReady?'':''} {needCalib?'需校準':''}</Text>
         <Text style={s.sub}>2026年 • {currentDir} {fly.star}{fly.name} • {currentMountain.m}山</Text>
         <View style={s.luoPanWrap}>
           <View style={[s.luoPan, {transform:[{rotate:`${-smooth}deg`}]}]}>
@@ -179,12 +159,12 @@ export default function App(){
         </View>
         <View style={[s.card, {borderColor: fly.color}]}>
           <Text style={[s.cardTitle, {color:fly.color}]}>{currentDir} - {fly.star} {fly.name}</Text>
-          <Text style={s.cardDesc}>{fly.desc} {fly.lay}</Text>
-          <Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}°</Text>
-          {!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={()=>showInter(()=>setUnlockedCai(true))}><Text style={s.goldBtnText}>查看詳細說明</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay} • 坐{currentMountain.m}山</Text></View>)}
+          <Text style={s.cardDesc}>{fly.desc}</Text>
+          <Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.gua}卦 {currentMountain.el}</Text>
+          {!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={()=>showInter(()=>setUnlockedCai(true))}><Text style={s.goldBtnText}>查看詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay}</Text></View>)}
         </View>
         <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
-        <Text style={{color:'#444',fontSize:10,marginTop:16}}>v1.0 (1) • 內容僅供參考 • {Math.round(smooth)}°已修復</Text>
+        <Text style={{color:'#444',fontSize:10,marginTop:16}}>v1.0 (1) SDK51 API34 • 內容僅供參考</Text>
       </ScrollView>
       <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('bazi')}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('settings')}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
       <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
@@ -205,7 +185,7 @@ const s=StyleSheet.create({
   cardTitle:{color:'#d4af37', fontSize:16, fontWeight:'bold'}, cardDesc:{color:'#ccc', fontSize:13, marginTop:6}, mountainDetail:{color:'#888', fontSize:11, marginTop:6},
   goldBtn:{backgroundColor:'#d4af37', padding:12, borderRadius:10, marginTop:12, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold'},
   darkBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#d4af37', padding:12, borderRadius:10, marginTop:10, alignItems:'center'}, darkBtnText:{color:'#d4af37', fontWeight:'bold'},
-  unlockedBox:{backgroundColor:'#2a2a2a', padding:10, borderRadius:8, marginTop:10}, unlockedText:{color:'#ddd', fontSize:13, marginTop:4},
+  unlockedBox:{backgroundColor:'#2a2a2a', padding:10, borderRadius:8, marginTop:10}, unlockedText:{color:'#ddd', fontSize:13, marginTop:4, lineHeight:18},
   nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:12, padding:8, marginTop:16, alignItems:'center', minHeight:270, borderWidth:1, borderColor:'#333'},
   adLabel:{color:'#666', fontSize:10, marginBottom:4}, input:{backgroundColor:'#222', color:'#fff', padding:12, borderRadius:8, borderWidth:1, borderColor:'#333', marginTop:10},
   bottomAd:{position:'absolute', bottom:0, width:'100%', alignItems:'center', backgroundColor:'#000', height:52},
