@@ -50,7 +50,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-         ./gradlew bundleRelease assembleRelease --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon
       - name: Upload
         if: always()
         uses: softprops/action-gh-release@v2
