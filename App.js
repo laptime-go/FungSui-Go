@@ -1,7 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity, AppState} from 'react-native';
 import { Magnetometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
 
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
 const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
@@ -10,89 +9,91 @@ const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
 const MOUNTAINS_24 = ["壬","子","癸","丑","艮","寅","甲","卯","乙","辰","巽","巳","丙","午","丁","未","坤","申","庚","酉","辛","戌","乾","亥"];
 const FLYING_2026 = {"正北":"一白偏財💰","西南":"二黑病符","正東":"三碧是非","東南":"四綠文昌正財💰","中宮":"五黃大煞","西北":"六白武曲","正西":"七赤破財","東北":"八白大財💰","正南":"九紫喜慶"};
 
+// 安全 Banner 組件，就算廣告炸都唔會死 app
+function SafeBanner({unitId, size}){
+  const [ok,setOk]=useState(true);
+  if(!ok) return null;
+  try{
+    const { BannerAd } = require('react-native-google-mobile-ads');
+    return <BannerAd unitId={unitId} size={size} onAdFailedToLoad={()=>setOk(false)} onAdFailedToOpen={()=>setOk(false)} />;
+  }catch(e){ return null; }
+}
+
 export default function App(){
   const [heading,setHeading]=useState(0);
   const [bazi,setBazi]=useState('');
   const [baziUnlocked,setBaziUnlocked]=useState(false);
-  const [interLoaded,setInterLoaded]=useState(false);
   const [adsReady,setAdsReady]=useState(false);
+  const [interLoaded,setInterLoaded]=useState(false);
   const lastAdTime=useRef(0);
   const pendingAction=useRef(null);
   const interstitialRef=useRef(null);
   const appOpenRef=useRef(null);
   const appOpenLoaded=useRef(false);
-  const isMounted=useRef(true);
   const lastH=useRef(0);
-  const appState=useRef(AppState.currentState);
 
   useEffect(()=>{
-    isMounted.current=true;
-    let mSub=null;
+    let sub=null;
     (async()=>{
       try{
-        const ok = await Magnetometer.isAvailableAsync();
-        if(!ok) return;
-        await Magnetometer.setUpdateIntervalAsync(400);
-        mSub=Magnetometer.addListener(d=>{
-          if(!isMounted.current) return;
+        if(!(await Magnetometer.isAvailableAsync())) return;
+        await Magnetometer.setUpdateIntervalAsync(500);
+        sub=Magnetometer.addListener(d=>{
           let a=Math.atan2(d.y,d.x)*180/Math.PI; a=90-a; if(a<0) a+=360;
           if(Math.abs(a-lastH.current)>2){ lastH.current=a; setHeading(a);}
         });
       }catch(e){}
     })();
-    return()=>{ isMounted.current=false; try{mSub&&mSub.remove();}catch(e){}};
+    return()=>{ try{sub&&sub.remove();}catch(e){} };
   },[]);
 
   useEffect(()=>{
-    let ls=[];
-    const sub=AppState.addEventListener('change', next=>{
-      if(appState.current.match(/inactive|background/) && next==='active'){
-        if(appOpenLoaded.current && appOpenRef.current){
-          setTimeout(()=>{ try{ appOpenRef.current.show(); }catch(e){} }, 1200);
-        }
-      }
-      appState.current=next;
-    });
-
-    // 核心修復：廣告延遲初始化，唔同 UI 搶
+    let listeners=[];
     let t1=setTimeout(async()=>{
-      if(!isMounted.current) return;
       try{
+        const mobileAds = require('react-native-google-mobile-ads').default;
+        const { InterstitialAd, AppOpenAd, AdEventType } = require('react-native-google-mobile-ads');
         await mobileAds().initialize();
-        if(!isMounted.current) return;
         setAdsReady(true);
 
-        // Interstitial 先 load
+        // 1. Interstitial
         try{
           const inter=InterstitialAd.createForAdRequest(INTER_ID,{requestNonPersonalizedAdsOnly:true});
           interstitialRef.current=inter;
           inter.load();
-          ls.push(inter.addAdEventListener(AdEventType.LOADED,()=> isMounted.current && setInterLoaded(true)));
-          ls.push(inter.addAdEventListener(AdEventType.CLOSED,()=>{
-            if(isMounted.current) setInterLoaded(false);
+          listeners.push(inter.addAdEventListener(AdEventType.LOADED,()=> setInterLoaded(true)));
+          listeners.push(inter.addAdEventListener(AdEventType.CLOSED,()=>{
+            setInterLoaded(false);
             try{inter.load();}catch(e){}
             lastAdTime.current=Date.now();
-            if(pendingAction.current==='bazi'&&isMounted.current) setBaziUnlocked(true);
+            if(pendingAction.current==='bazi') setBaziUnlocked(true);
             pendingAction.current=null;
           }));
-          ls.push(inter.addAdEventListener(AdEventType.ERROR,()=>{ if(isMounted.current) setInterLoaded(false); setTimeout(()=>{try{inter.load();}catch(e){}},5000); }));
+          listeners.push(inter.addAdEventListener(AdEventType.ERROR,()=> setInterLoaded(false)));
         }catch(e){}
-      }catch(e){ if(isMounted.current) setAdsReady(true);}
-    },1500);
 
-    // AppOpen 最易死，延遲 4 秒先 load
-    let t2=setTimeout(()=>{
-      try{
-        const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
-        appOpenRef.current=appOpen;
-        appOpen.load();
-        ls.push(appOpen.addAdEventListener(AdEventType.LOADED,()=>{ appOpenLoaded.current=true; }));
-        ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ appOpenLoaded.current=false; try{appOpen.load();}catch(e){}}));
-        ls.push(appOpen.addAdEventListener(AdEventType.ERROR,()=>{ appOpenLoaded.current=false; }));
-      }catch(e){}
-    },4000);
+        // 2. AppOpen 延後再延後，入到前景先 show，絕對唔開機自動 show
+        setTimeout(()=>{
+          try{
+            const ao=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
+            appOpenRef.current=ao;
+            ao.load();
+            listeners.push(ao.addAdEventListener(AdEventType.LOADED,()=>{ appOpenLoaded.current=true; }));
+            listeners.push(ao.addAdEventListener(AdEventType.CLOSED,()=>{ appOpenLoaded.current=false; try{ao.load();}catch(e){}}));
+            listeners.push(ao.addAdEventListener(AdEventType.ERROR,()=>{ appOpenLoaded.current=false; }));
+            const sub=AppState.addEventListener('change', ns=>{
+              if(ns==='active' && appOpenLoaded.current && appOpenRef.current){
+                setTimeout(()=>{ try{appOpenRef.current.show();}catch(e){} }, 1000);
+              }
+            });
+            listeners.push(()=>sub.remove());
+          }catch(e){}
+        }, 6000);
 
-    return()=>{ clearTimeout(t1); clearTimeout(t2); sub.remove(); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
+      }catch(e){ setAdsReady(true); }
+    }, 2000);
+
+    return()=>{ clearTimeout(t1); listeners.forEach(f=>{try{f&&f();}catch(e){}}); };
   },[]);
 
   const showAd=(type)=>{
@@ -109,12 +110,13 @@ export default function App(){
   const dir=getDirection();
   const isWealth=FLYING_2026[dir]?.includes("財");
   const baziResult=bazi? (parseInt(bazi.slice(0,4))%2==0? "喜火🔥 宜坐正南，九紫位":"喜水💧 宜坐正北，一白財位"):"";
+  const { BannerAdSize } = (()=>{ try{return require('react-native-google-mobile-ads');}catch(e){return {BannerAdSize:{BANNER:'BANNER', MEDIUM_RECTANGLE:'MEDIUM_RECTANGLE'}}} })();
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{alignItems:'center', paddingBottom:120}}>
         <Text style={styles.title}>風水佬Go - {Math.round(heading)}°</Text>
-        <Text style={styles.sub}>2026丙午年・SDK36防閃退版 {adsReady?'✓':''}</Text>
+        <Text style={styles.sub}>2026丙午年・SDK36終極唔死版 {adsReady?'✓廣告OK':''}</Text>
         <View style={styles.tungBox}><Text style={styles.tungText}>今日 {new Date().toLocaleDateString('zh-HK')} | 煞東 沖兔</Text></View>
         <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}><Text style={styles.n}>▲北 {getMountain()}山</Text></View>
         <View style={[styles.resultBox,isWealth&&styles.wealthBox]}>
@@ -128,7 +130,7 @@ export default function App(){
         </View>
         <View style={styles.nativeBox}>
           <Text style={styles.nativeTitle}>風水貼士推薦</Text>
-          {adsReady && <BannerAd unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} onAdFailedToLoad={()=>{}} />}
+          {adsReady && <SafeBanner unitId={NATIVE_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />}
         </View>
         <View style={styles.baziBox}>
           <Text style={styles.label}>八字喜用 (增加留存 + 多1次收益):</Text>
@@ -141,7 +143,7 @@ export default function App(){
         </View>
       </ScrollView>
       <View style={styles.ad}>
-        {adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} onAdFailedToLoad={()=>{}} />}
+        {adsReady && <SafeBanner unitId={BANNER_ID} size={BannerAdSize.BANNER} />}
       </View>
     </View>
   );
