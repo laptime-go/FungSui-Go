@@ -28,7 +28,7 @@ jobs:
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           "
       - name: Expo prebuild
-        run: npx expo prebuild --clean
+        run: npx expo prebuild --clean --platform android
       - name: ULTIMATE FORCE Fix API 36
         run: |
           python3 - << 'PY'
