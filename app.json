@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 24,
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./icon.jpg",
         "backgroundColor": "#0f0f0f"
@@ -26,9 +26,26 @@
       "permissions": ["com.google.android.gms.permission.AD_ID"]
     },
     "plugins": [
-      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 34, "targetSdkVersion": 34, "kotlinVersion": "1.9.22" } }],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "kotlinVersion": "1.9.22"
+          }
+        }
+      ],
       ["expo-sensors"],
-      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "iosAppId": "ca-app-pub-9890149028563226~8454882079", "userTrackingUsageDescription": "用於提供個人化風水廣告" }]
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9890149028563226~8454882079",
+          "iosAppId": "ca-app-pub-9890149028563226~8454882079",
+          "userTrackingUsageDescription": "此識別碼用於顯示相關內容"
+        }
+      ]
     ],
     "extra": {
       "adUnitIds": {
