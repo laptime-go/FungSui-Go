@@ -17,11 +17,12 @@ jobs:
           rm -rf node_modules/jsc-android
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: Fix gradle.properties format
+      - name: Fix gradle.properties
         run: |
           echo "" >> android/gradle.properties
+          sed -i '/MYAPP_/d' android/gradle.properties
           sed -i 's/\r$//' android/gradle.properties
-          sed -i -e '$a\' android/gradle.properties
+          echo "" >> android/gradle.properties
       - name: Keystore
         run: |
           mkdir -p android/app
@@ -29,7 +30,6 @@ jobs:
           cp android/app/release.keystore android/release.keystore
       - name: Signing
         run: |
-          echo "" >> android/gradle.properties
           echo "MYAPP_RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
           echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
