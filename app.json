@@ -12,17 +12,23 @@
       "resizeMode": "contain",
       "backgroundColor": "#0f0f0f"
     },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.laptimego.fungsui"
+    },
     "android": {
       "package": "com.laptimego.fungsui",
       "versionCode": 24,
-      "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#0f0f0f" },
-      "permissions": ["com.google.android.gms.permission.AD_ID"],
-      "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION"]
+      "adaptiveIcon": {
+        "foregroundImage": "./icon.jpg",
+        "backgroundColor": "#0f0f0f"
+      },
+      "permissions": ["com.google.android.gms.permission.AD_ID"]
     },
     "plugins": [
       ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 34, "targetSdkVersion": 34, "kotlinVersion": "1.9.22" } }],
       ["expo-sensors"],
-      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "userTrackingUsageDescription": "用於提供個人化風水廣告" }]
+      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "iosAppId": "ca-app-pub-9890149028563226~8454882079", "userTrackingUsageDescription": "用於提供個人化風水廣告" }]
     ],
     "extra": {
       "adUnitIds": {
