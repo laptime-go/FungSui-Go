@@ -11,30 +11,38 @@ jobs:
         with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
+
       - name: Install deps
         run: npm install
-      - name: Expo prebuild
-        run: npx expo prebuild --clean
+
+      - name: Expo prebuild android only
+        run: npx expo prebuild --clean --platform android
+
       - name: ULTIMATE FORCE Fix API 34
         run: |
           python3 - << 'PY'
           import pathlib, re
           for p in pathlib.Path("android").rglob("*.gradle"):
-              t=p.read_text()
-              t=t.replace('rootProject.ext.compileSdkVersion','34').replace('rootProject.ext.targetSdkVersion','34').replace('rootProject.ext.minSdkVersion','24')
-              t=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 34',t)
-              t=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 34',t)
-              t=re.sub(r'compileSdk\s*\d+','compileSdk 34',t)
-              t=re.sub(r'targetSdk\s*\d+','targetSdk 34',t)
-              p.write_text(t)
+              try:
+                t=p.read_text()
+                t=t.replace('rootProject.ext.compileSdkVersion','34').replace('rootProject.ext.targetSdkVersion','34').replace('rootProject.ext.minSdkVersion','24')
+                t=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 34',t)
+                t=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 34',t)
+                t=re.sub(r'compileSdk\s*\d+','compileSdk 34',t)
+                t=re.sub(r'targetSdk\s*\d+','targetSdk 34',t)
+                p.write_text(t)
+              except: pass
           ap=pathlib.Path("android/app/build.gradle")
           s=ap.read_text(); s=re.sub(r'versionCode \d+','versionCode 20',s); ap.write_text(s)
+          print("forced to 34 v20")
           PY
+
       - name: Use Keystore
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
+
       - name: Inject signing
         run: |
           sed -i '/MYAPP_/d' android/gradle.properties
@@ -46,12 +54,14 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-      - name: Build
+
+      - name: Build AAB + APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon
-      - name: Upload
+
+      - name: Upload AAB+APK
         if: always()
         uses: softprops/action-gh-release@v2
         with:
