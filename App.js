@@ -20,6 +20,7 @@ export default function App(){
   const pendingAction=useRef(null);
   const interstitialRef=useRef(null);
   const appOpenRef=useRef(null);
+  const appOpenLoaded=useRef(false);
   const isMounted=useRef(true);
   const lastH=useRef(0);
   const appState=useRef(AppState.currentState);
@@ -29,12 +30,12 @@ export default function App(){
     let mSub=null;
     (async()=>{
       try{
-        await Magnetometer.setUpdateIntervalAsync(200);
+        await Magnetometer.setUpdateIntervalAsync(300);
         mSub=Magnetometer.addListener(d=>{
           if(!isMounted.current) return;
           let a=Math.atan2(d.y,d.x)*180/Math.PI;
           a=90-a; if(a<0) a+=360;
-          if(Math.abs(a-lastH.current)>1){ lastH.current=a; setHeading(a);}
+          if(Math.abs(a-lastH.current)>1.5){ lastH.current=a; setHeading(a);}
         });
       }catch(e){}
     })();
@@ -42,15 +43,17 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    let ls=[]; let t1=null; let t2=null;
+    let ls=[];
     const sub=AppState.addEventListener('change', next=>{
       if(appState.current.match(/inactive|background/) && next==='active'){
-        try{ appOpenRef.current && appOpenRef.current.show(); }catch(e){}
+        if(appOpenLoaded.current && appOpenRef.current){
+          setTimeout(()=>{ try{ appOpenRef.current.show(); }catch(e){} }, 400);
+        }
       }
       appState.current=next;
     });
 
-    t1=setTimeout(async()=>{
+    let t1=setTimeout(async()=>{
       if(!isMounted.current) return;
       try{
         await mobileAds().initialize();
@@ -69,21 +72,17 @@ export default function App(){
         }));
         ls.push(inter.addAdEventListener(AdEventType.ERROR,()=> isMounted.current && setInterLoaded(false)));
 
-        t2=setTimeout(()=>{
-          if(!isMounted.current) return;
-          try{
-            const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
-            appOpenRef.current=appOpen;
-            appOpen.load();
-            ls.push(appOpen.addAdEventListener(AdEventType.LOADED,()=>{ try{appOpen.show();}catch(e){} }));
-            ls.push(appOpen.addAdEventListener(AdEventType.ERROR,()=>{}));
-            ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ try{appOpen.load();}catch(e){}}));
-          }catch(e){}
-        }, 1000);
+        // AppOpen 只預載，唔自動 show，修閃退核心
+        const appOpen=AppOpenAd.createForAdRequest(OPEN_ID,{requestNonPersonalizedAdsOnly:true});
+        appOpenRef.current=appOpen;
+        appOpen.load();
+        ls.push(appOpen.addAdEventListener(AdEventType.LOADED,()=>{ appOpenLoaded.current=true; }));
+        ls.push(appOpen.addAdEventListener(AdEventType.CLOSED,()=>{ appOpenLoaded.current=false; try{appOpen.load();}catch(e){}}));
+        ls.push(appOpen.addAdEventListener(AdEventType.ERROR,()=>{ appOpenLoaded.current=false; }));
       }catch(e){ if(isMounted.current) setAdsReady(true);}
-    },500);
+    },800);
 
-    return()=>{ clearTimeout(t1); clearTimeout(t2); sub.remove(); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
+    return()=>{ clearTimeout(t1); sub.remove(); ls.forEach(f=>{try{f&&f();}catch(e){}}); };
   },[]);
 
   const showAd=(type)=>{
@@ -105,7 +104,7 @@ export default function App(){
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{alignItems:'center', paddingBottom:120}}>
         <Text style={styles.title}>風水佬Go - {Math.round(heading)}°</Text>
-        <Text style={styles.sub}>2026丙午年・SDK36秒出版 STONE 40:0C:73 {adsReady?'':'(廣告初始化中)'}</Text>
+        <Text style={styles.sub}>2026丙午年・SDK36防閃退版 {adsReady?'✓':''}</Text>
         <View style={styles.tungBox}><Text style={styles.tungText}>今日 {new Date().toLocaleDateString('zh-HK')} | 煞東 沖兔</Text></View>
         <View style={[styles.luopan,{transform:[{rotate:`${-heading}deg`}]}]}><Text style={styles.n}>▲北 {getMountain()}山</Text></View>
         <View style={[styles.resultBox,isWealth&&styles.wealthBox]}>
@@ -114,7 +113,6 @@ export default function App(){
           {isWealth&&(
             <TouchableOpacity style={styles.goldBtn} onPress={()=>showAd('wealth')}>
               <Text style={styles.goldBtnText}>💰 解鎖催財秘法 (睇廣告)</Text>
-              <Text style={styles.goldBtnSub}>{interLoaded?'點擊即睇':'載入中...'}</Text>
             </TouchableOpacity>
           )}
         </View>
