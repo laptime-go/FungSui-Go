@@ -18,12 +18,28 @@ jobs:
       - name: Expo prebuild android only
         run: npx expo prebuild --clean --platform android
 
+      - name: Fix Expo Gradle 85 release Bug - 你張圖嗰個錯
+        run: |
+          FILE="node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle"
+          if [ -f "$FILE" ]; then
+            sed -i 's/components\.release/components.findByName("release")/g' "$FILE"
+            sed -i 's/components\.debug/components.findByName("debug")/g' "$FILE"
+            echo "Patched ExpoModulesCorePlugin.gradle"
+          fi
+          # 同時 fix expo 另一個常見 publishing 錯
+          FILE2="node_modules/expo/android/build.gradle"
+          if [ -f "$FILE2" ]; then
+            sed -i 's/components\.release/components.findByName("release")/g' "$FILE2"
+          fi
+
       - name: ULTIMATE FORCE Fix API 34
         run: |
           python3 - << 'PY'
           import pathlib, re
           for p in pathlib.Path("android").rglob("*.gradle"):
               try:
+                if "ExpoModulesCorePlugin" in str(p):
+                  continue
                 t=p.read_text()
                 t=t.replace('rootProject.ext.compileSdkVersion','34').replace('rootProject.ext.targetSdkVersion','34').replace('rootProject.ext.minSdkVersion','24')
                 t=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 34',t)
@@ -31,9 +47,13 @@ jobs:
                 t=re.sub(r'compileSdk\s*\d+','compileSdk 34',t)
                 t=re.sub(r'targetSdk\s*\d+','targetSdk 34',t)
                 p.write_text(t)
-              except: pass
+              except:
+                pass
           ap=pathlib.Path("android/app/build.gradle")
-          s=ap.read_text(); s=re.sub(r'versionCode \d+','versionCode 20',s); ap.write_text(s)
+          s=ap.read_text()
+          s=re.sub(r'versionCode \d+','versionCode 20',s)
+          s=re.sub(r'versionName ".*?"','versionName "1.0.0"',s)
+          ap.write_text(s)
           print("forced to 34 v20")
           PY
 
@@ -42,6 +62,9 @@ jobs:
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
+          cp android/app/release.keystore android/app/upload-keystore.jks
+          echo "Keystore SHA1 should be 40:0C:73"
+          keytool -list -v -keystore android/app/release.keystore -alias ${{ secrets.KEYSTONE_ALIAS }} -storepass ${{ secrets.KEYSTONE_PASSWORD }} | grep -E "Alias|SHA1" || true
 
       - name: Inject signing
         run: |
