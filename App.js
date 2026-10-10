@@ -22,29 +22,27 @@ const MOUNTAINS_INFO = [
   {m:"戌",gua:"乾",el:"土",deg:"292.5-307.5"}, {m:"乾",gua:"乾",el:"金",deg:"307.5-322.5"}, {m:"亥",gua:"乾",el:"水",deg:"322.5-337.5"},
 ];
 const FLY_2026 = {
-  "正北": {star:"一白", name:"偏財位", desc:"2026年一白星，利財運，適合水種植物", color:"#D4AF37", good:true, lay:"建議：水種富貴竹或一杯清水"},
-  "東北": {star:"八白", name:"正財位", desc:"2026年八白星，當年最旺財位", color:"#D4AF37", good:true, lay:"建議：黃水晶財箱，聚寶盆"},
-  "正東": {star:"三碧", name:"是非位", desc:"三碧星，是非口舌位", color:"#FF6B6B", good:false, lay:"建議：紅色地氈化解"},
-  "東南": {star:"四綠", name:"文昌位", desc:"四綠星，利讀書考試", color:"#51CF66", good:true, lay:"建議：文昌塔，四枝富貴竹"},
-  "正南": {star:"九紫", name:"喜慶位", desc:"九紫星，利喜慶人緣", color:"#FF69B4", good:true, lay:"建議：紅色佈置，九枝紅花"},
-  "西南": {star:"二黑", name:"病符位", desc:"二黑星，注意健康", color:"#888", good:false, lay:"建議：銅葫蘆化解"},
-  "正西": {star:"七赤", name:"破財位", desc:"七赤星，注意財物口舌", color:"#FF8E53", good:false, lay:"建議：一杯清水化解"},
-  "西北": {star:"六白", name:"武曲位", desc:"六白星，利事業貴人", color:"#D4AF37", good:true, lay:"建議：六帝錢，金屬風鈴"},
-  "中宮": {star:"五黃", name:"五黃位", desc:"2026中宮五黃，宜靜不宜動", color:"#FF4444", good:false, lay:"建議：五帝錢，保持整潔"},
+  "正北": {star:"一白", name:"偏財位", desc:"2026年一白星，利財運", color:"#D4AF37", lay:"建議：水種富貴竹或一杯清水"},
+  "東北": {star:"八白", name:"正財位", desc:"2026年八白最旺財位", color:"#D4AF37", lay:"建議：黃水晶聚寶盆"},
+  "正東": {star:"三碧", name:"是非位", desc:"三碧是非口舌", color:"#FF6B6B", lay:"建議：紅色地氈化解"},
+  "東南": {star:"四綠", name:"文昌位", desc:"四綠利讀書考試", color:"#51CF66", lay:"建議：文昌塔"},
+  "正南": {star:"九紫", name:"喜慶位", desc:"九紫利喜慶人緣", color:"#FF69B4", lay:"建議：紅色佈置"},
+  "西南": {star:"二黑", name:"病符位", desc:"二黑注意健康", color:"#888", lay:"建議：銅葫蘆"},
+  "正西": {star:"七赤", name:"破財位", desc:"七赤注意財物", color:"#FF8E53", lay:"建議：一杯清水"},
+  "西北": {star:"六白", name:"武曲位", desc:"六白利事業貴人", color:"#D4AF37", lay:"建議：六帝錢"},
+  "中宮": {star:"五黃", name:"五黃位", desc:"中宮五黃宜靜", color:"#FF4444", lay:"建議：五帝錢"},
 };
 function calcBazi(dateStr){
   try{
     const d=new Date(dateStr); if(isNaN(d)) return null;
     const stems=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
     const y=d.getFullYear(); const m=d.getMonth()+1; const day=d.getDate();
-    const yearStem=stems[(y-4)%10];
-    const dayStem=stems[(day+y+m)%10];
+    const yearStem=stems[(y-4)%10]; const dayStem=stems[(y*5+m*3+day)%10];
     const map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
-    const five={木:1,火:1,土:1,金:1,水:1};
-    five[map[yearStem]]++; five[map[dayStem]]++;
+    const five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; five[map[dayStem]]++;
     let weak=Object.entries(five).sort((a,b)=>a[1]-b[1])[0][0];
     let luckyMap={木:"火 正南 紅色",火:"土 西南 黃色",土:"金 正西 白色",金:"水 正北 黑色",水:"木 正東 綠色"};
-    return {yearStem, dayStem, fiveCount:five, xi:weak, luckyDir:luckyMap[weak], full:`${y}年 ${yearStem}命 日主${dayStem}`};
+    return {full:`${y}年 ${yearStem}命 日干${dayStem}`, xi:weak, luckyDir:luckyMap[weak], fiveCount:five};
   }catch{ return null; }
 }
 
@@ -53,40 +51,51 @@ export default function App(){
   const [heading,setHeading]=useState(0); const [smooth,setSmooth]=useState(0);
   const [adsReady,setAdsReady]=useState(false); const [interReady,setInterReady]=useState(false);
   const [baziInput,setBaziInput]=useState(''); const [baziRes,setBaziRes]=useState(null);
-  const [unlockedBazi,setUnlockedBazi]=useState(false); const [unlockedCai,setUnlockedCai]=useState(false);
+  const [unlockedCai,setUnlockedCai]=useState(false);
   const [needCalib,setNeedCalib]=useState(false); const [lastInterTime,setLastInterTime]=useState(0);
   const interRef=useRef(null); const lastRaw=useRef(0);
-  const accData=useRef({x:0,y:0,z:0}); const magData=useRef({x:0,y:0,z:0});
+  const accData=useRef({x:0,y:0,z:9.81}); const magFiltered=useRef({x:0,y:0,z:0});
 
+  // 修復核心：濾波 + 防NaN + 一定會轉
   useEffect(()=>{
     let magSub, accSub;
+    let first=true;
     (async()=>{
       const avail = await Magnetometer.isAvailableAsync();
       if(!avail){ setNeedCalib(true); return; }
       await Magnetometer.setUpdateIntervalAsync(80);
       await Accelerometer.setUpdateIntervalAsync(80);
-      accSub = Accelerometer.addListener((data)=>{ accData.current=data; });
-      magSub = Magnetometer.addListener((data)=>{
-        magData.current=data;
-        const {x,y,z} = data;
+      accSub = Accelerometer.addListener(d=>{ accData.current=d; });
+      magSub = Magnetometer.addListener(d=>{
+        // 低通濾波
+        if(first){ magFiltered.current=d; first=false; }
+        else{
+          magFiltered.current.x = magFiltered.current.x*0.85 + d.x*0.15;
+          magFiltered.current.y = magFiltered.current.y*0.85 + d.y*0.15;
+          magFiltered.current.z = magFiltered.current.z*0.85 + d.z*0.15;
+        }
+        const {x,y,z} = magFiltered.current;
         const {x:ax,y:ay,z:az} = accData.current;
+        if(!isFinite(ax) || Math.abs(az)<0.1) return;
         const roll = Math.atan2(ay, az);
-        const pitch = Math.atan2(-ax, Math.sqrt(ay*ay+az*az));
+        const pitch = Math.atan2(-ax, Math.hypot(ay,az));
         const mx = x*Math.cos(pitch)+z*Math.sin(pitch);
         const my = x*Math.sin(roll)*Math.sin(pitch)+y*Math.cos(roll)-z*Math.sin(roll)*Math.cos(pitch);
+        if(!isFinite(mx) ||!isFinite(my)) return;
         let a = Math.atan2(-my, mx)*180/Math.PI;
         a = (a+360)%360;
-        const magStrength = Math.sqrt(x*x+y*y+z*z);
-        setNeedCalib(magStrength<20||magStrength>70);
-        let diff=a-lastRaw.current; if(Math.abs(diff)>180) diff=diff>0?diff-360:diff+360;
-        lastRaw.current=(lastRaw.current+diff*0.15+360)%360;
-        setHeading(Math.round(lastRaw.current));
+        const strength = Math.hypot(x,y,z);
+        setNeedCalib(strength<20 || strength>75);
+        let diff=a-lastRaw.current; if(diff>180) diff-=360; if(diff<-180) diff+=360;
+        lastRaw.current=(lastRaw.current+diff*0.25+360)%360;
+        setHeading(lastRaw.current);
       });
       const saved=await AsyncStorage.getItem('bazi_v1'); if(saved) setBaziInput(saved);
     })();
     return()=>{magSub?.remove(); accSub?.remove();};
   },[]);
-  useEffect(()=>{ const t=setInterval(()=>{ let d=heading-smooth; if(Math.abs(d)>180)d=d>0?d-360:d+360; if(Math.abs(d)>0.05)setSmooth(s=>(s+d*0.1+360)%360); },16); return()=>clearInterval(t); },[heading,smooth]);
+
+  useEffect(()=>{ const t=setInterval(()=>{ let d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; setSmooth(s=>(s+d*0.12+360)%360); },16); return()=>clearInterval(t); },[heading,smooth]);
 
   useEffect(()=>{
     const tm=setTimeout(async()=>{
@@ -96,27 +105,27 @@ export default function App(){
         interRef.current=inter; inter.load();
         inter.addAdEventListener(AdEventType.LOADED,()=>setInterReady(true));
         inter.addAdEventListener(AdEventType.CLOSED,()=>{ setLastInterTime(Date.now()); inter.load(); });
-        const appOpen=AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true}); appOpen.load();
+        AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true}).load();
       }catch{}
-    },1500); return()=>clearTimeout(tm);
+    },1200); return()=>clearTimeout(tm);
   },[]);
 
   const currentMountain = useMemo(()=>{ const idx=Math.floor((smooth+7.5)/15)%24; return MOUNTAINS_INFO[idx]; },[smooth]);
   const currentDir = useMemo(()=>{ const dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; return dirs[Math.round(smooth/45)%8]; },[smooth]);
-  const fly = FLY_2026[currentDir]||FLY_2026["正北"];
-  const showInter = (cb)=>{ const now=Date.now(); if(interReady&&now-lastInterTime>90000&&interRef.current){ const unsub=interRef.current.addAdEventListener(AdEventType.CLOSED,()=>{cb();unsub();}); interRef.current.show().catch(()=>cb()); } else cb(); };
+  const fly = FLY_2026[currentDir];
+
+  const showInter = (cb)=>{ const now=Date.now(); if(interReady&&now-lastInterTime>60000&&interRef.current){ const u=interRef.current.addAdEventListener(AdEventType.CLOSED,()=>{cb();u();}); interRef.current.show().catch(()=>cb()); } else cb(); };
 
   if(tab==='settings'){
     return (
       <View style={s.container}>
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:45,paddingBottom:130}}>
-          <Text style={s.title}>設定</Text><Text style={s.sub}>風水佬Go v1.0 (1) • API34 SDK51 穩定版</Text>
-          <View style={s.setCard}><Text style={s.setT}>羅盤校準 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}°`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦{'\n'}請平放裝置，畫8字校準。</Text>
-            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','1. 平放手機\n2. 空中畫8字5次\n3. 直到度數跟住轉')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
+          <Text style={s.title}>設定</Text><Text style={s.sub}>v1.0 (1) • {Math.round(smooth)}° 實時</Text>
+          <View style={s.setCard}><Text style={s.setT}>羅盤 {needCalib?'⚠️需校準':`✓ ${Math.round(smooth)}° 正常`}</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua}卦 {currentMountain.el}{'\n'}此版已修復0°卡死，會跟手轉。</Text>
+            <TouchableOpacity style={s.goldBtn} onPress={()=>Alert.alert('校準','平放畫8字5次')}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity>
           </View>
           <View style={s.setCard}><Text style={s.setT}>資料</Text><Text style={s.setD}>生日：{baziInput||'未設定'}</Text>
-            <TouchableOpacity style={s.darkBtn} onPress={async()=>{ if(baziInput) await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async()=>{await AsyncStorage.clear(); setBaziInput('');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity>
+            <TouchableOpacity style={s.darkBtn} onPress={async()=>{await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存');}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity>
           </View>
         </ScrollView>
         <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={()=>setTab('compass')}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('bazi')}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
@@ -131,8 +140,8 @@ export default function App(){
           <Text style={s.title}>八字參考</Text>
           <View style={[s.card,{width:'92%'}]}>
             <TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
-            <TouchableOpacity style={s.goldBtn} onPress={()=>{ const r=calcBazi(baziInput); if(!r) setBaziRes({error:"格式錯誤 YYYY-MM-DD"}); else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(()=>setUnlockedBazi(true)); } }}><Text style={s.goldBtnText}>查看分析</Text></TouchableOpacity>
-            {baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error||`${baziRes.full}\n喜${baziRes.xi} 宜${baziRes.luckyDir}\n五行 ${JSON.stringify(baziRes.fiveCount)}`}</Text></View>}
+            <TouchableOpacity style={s.goldBtn} onPress={()=>{ const r=calcBazi(baziInput); if(!r) setBaziRes({error:"格式 YYYY-MM-DD"}); else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>查看分析</Text></TouchableOpacity>
+            {baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error||`${baziRes.full}\n喜${baziRes.xi} 宜${baziRes.luckyDir}`}</Text></View>}
           </View>
           <View style={s.nativeBox}>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
@@ -145,12 +154,12 @@ export default function App(){
   return (
     <View style={s.container}>
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:140, paddingTop:35}}>
-        <Text style={s.title}>風水佬Go {Math.round(smooth)}° {adsReady?'':''} {needCalib?'需校準':''}</Text>
-        <Text style={s.sub}>2026年 • {currentDir} {fly.star}{fly.name} • {currentMountain.m}山</Text>
+        <Text style={s.title}>風水佬Go {Math.round(smooth)}° {needCalib?'需校準':''}</Text>
+        <Text style={s.sub}>2026 • {currentDir} {fly.star}{fly.name} • {currentMountain.m}山</Text>
         <View style={s.luoPanWrap}>
           <View style={[s.luoPan, {transform:[{rotate:`${-smooth}deg`}]}]}>
             <View style={s.luoInner}>
-              {MOUNTAINS_24.map((m,i)=>{ return (<View key={m} style={[s.mountainMark, {transform:[{rotate:`${i*15}deg`}, {translateY:-110}]}]}><Text style={[s.mountainText, currentMountain?.m===m && s.mountainActive]}>{m}</Text></View>); })}
+              {MOUNTAINS_24.map((m,i)=>(<View key={m} style={[s.mountainMark, {transform:[{rotate:`${i*15}deg`}, {translateY:-110}]}]}><Text style={[s.mountainText, currentMountain?.m===m && s.mountainActive]}>{m}</Text></View>))}
               <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:12}}>{currentMountain.m}</Text></View>
             </View>
             <Text style={s.northMark}>北 {Math.round(smooth)}°</Text>
@@ -160,11 +169,10 @@ export default function App(){
         <View style={[s.card, {borderColor: fly.color}]}>
           <Text style={[s.cardTitle, {color:fly.color}]}>{currentDir} - {fly.star} {fly.name}</Text>
           <Text style={s.cardDesc}>{fly.desc}</Text>
-          <Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.gua}卦 {currentMountain.el}</Text>
+          <Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.gua}卦</Text>
           {!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={()=>showInter(()=>setUnlockedCai(true))}><Text style={s.goldBtnText}>查看詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay}</Text></View>)}
         </View>
-        <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
-        <Text style={{color:'#444',fontSize:10,marginTop:16}}>v1.0 (1) SDK51 API34 • 內容僅供參考</Text>
+        <View style={s.nativeBox}><Text style={s.adLabel}>推薦</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
       </ScrollView>
       <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('bazi')}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={()=>setTab('settings')}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
       <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
