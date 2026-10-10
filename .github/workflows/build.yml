@@ -88,7 +88,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-         ./gradlew bundleRelease assembleRelease --no-daemon -x lint
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lint
 
       - name: Upload AAB+APK to Release
         if: always()
