@@ -45,7 +45,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "用於羅盤方向校準"
+          "locationAlwaysAndWhenInUsePermission": "用於羅盤方向",
+          "locationWhenInUsePermission": "用於羅盤方向"
         }
       ],
       [
