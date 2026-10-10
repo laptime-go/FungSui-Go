@@ -10,15 +10,14 @@
     "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 18,
+      "versionCode": 19,
       "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#000000" },
-      "permissions": ["com.google.android.gms.permission.AD_ID"],
-      "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION"]
+      "permissions": ["com.google.android.gms.permission.AD_ID"]
     },
     "plugins": [
       "expo-sensors",
-      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25" } }],
-      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079" }]
+      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25", "packagingOptions": { "pickFirst": ["**/libc++_shared.so", "**/libfbjni.so"] } }, "ios": { "useFrameworks": "static" } }],
+      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "iosAppId": "" }]
     ]
   }
 }
