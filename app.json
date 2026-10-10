@@ -5,19 +5,19 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./icon.jpg",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "jsEngine": "hermes",
-    "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
+    "splash": { "backgroundColor": "#0f0f0f", "resizeMode": "contain", "image": "./icon.jpg" },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 19,
-      "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#000000" },
+      "versionCode": 20,
+      "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#0f0f0f" },
       "permissions": ["com.google.android.gms.permission.AD_ID"]
     },
     "plugins": [
       "expo-sensors",
-      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25", "packagingOptions": { "pickFirst": ["**/libc++_shared.so", "**/libfbjni.so"] } }, "ios": { "useFrameworks": "static" } }],
-      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "iosAppId": "" }]
+      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25", "enableProguardInReleaseBuilds": false, "enableShrinkResourcesInReleaseBuilds": false } }],
+      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079", "userTrackingUsageDescription": "用於提供個人化風水廣告" }]
     ]
   }
 }
