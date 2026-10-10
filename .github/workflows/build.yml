@@ -1,4 +1,4 @@
-name: Build FungSui-Go SDK36 FIXED
+name: Build FungSui-Go SDK36 NO-CRASH
 on: workflow_dispatch
 jobs:
   build:
@@ -10,42 +10,44 @@ jobs:
         with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
-      - name: Install deps
+      - name: Clean
         run: |
-          rm -rf node_modules android package-lock.json google-services.json
+          rm -rf node_modules android package-lock.json
           npm install --legacy-peer-deps
           rm -rf node_modules/jsc-android
+          npm list react-native-google-mobile-ads
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
-      - name: Fix Expo Gradle 85 Bug + Force SDK36
+      - name: Force Fix Gradle + No JSC + SDK36
         run: |
-          for F in node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle node_modules/expo/android/build.gradle; do
-            [ -f "$F" ] && sed -i 's/components\.release/components.findByName("release")/g; s/components\.debug/components.findByName("debug")/g' "$F" && echo "Patched $F"
-          done
+          sed -i 's/components\.release/components.findByName("release")/g; s/components\.debug/components.findByName("debug")/g' node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle || true
+          sed -i 's/components\.release/components.findByName("release")/g; s/components\.debug/components.findByName("debug")/g' node_modules/expo/android/build.gradle || true
+          # 強制閂 newArch，呢個係 14.11.0 死 app 元凶
+          echo "newArchEnabled=false" >> android/gradle.properties
+          echo "hermesEnabled=true" >> android/gradle.properties
+          echo "expo.jsEngine=hermes" >> android/gradle.properties
           python3 - << 'PY'
           import pathlib, re
-          bg=pathlib.Path("android/build.gradle")
-          t=bg.read_text()
-          t=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 36',t)
-          t=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 36',t)
-          t=re.sub(r'minSdkVersion\s*=\s*\d+','minSdkVersion = 24',t)
-          t=re.sub(r'buildToolsVersion\s*=\s*["\'].*?["\']','buildToolsVersion = "36.0.0"',t)
-          bg.write_text(t)
-          print("forced 36")
+          p=pathlib.Path("android/gradle.properties")
+          t=p.read_text()
+          if "androidXMigration" not in t: t+="\nandroidXMigration=true\n"
+          p.write_text(t)
+          for f in ["android/build.gradle","android/app/build.gradle"]:
+            fp=pathlib.Path(f)
+            if not fp.exists(): continue
+            txt=fp.read_text()
+            txt=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 36',txt)
+            txt=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 36',txt)
+            txt=re.sub(r'minSdkVersion\s*=\s*\d+','minSdkVersion = 24',txt)
+            fp.write_text(txt)
+          print("patched")
           PY
-      - name: Fix gradle.properties
-        run: |
-          echo "" >> android/gradle.properties
-          sed -i '/MYAPP_/d' android/gradle.properties
-          sed -i 's/\r$//' android/gradle.properties
-          echo "" >> android/gradle.properties
-      - name: Keystore
+          cat android/gradle.properties
+      - name: Keystore + Sign
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
-      - name: Signing
-        run: |
           echo "MYAPP_RELEASE_STORE_FILE=release.keystore" >> android/gradle.properties
           echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
@@ -54,13 +56,12 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-          cat android/gradle.properties
-      - name: Build SDK36
-        run: cd android; chmod +x gradlew;./gradlew bundleRelease assembleRelease --no-daemon -x lint
+      - name: Build
+        run: cd android; chmod +x gradlew; ./gradlew bundleRelease assembleRelease --no-daemon -x lint --stacktrace
       - name: Upload
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-sdk36-fixed-${{ github.run_number }}
+          tag_name: fungsui-no-crash-${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
