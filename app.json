@@ -10,12 +10,12 @@
     "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 16,
+      "versionCode": 17,
       "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#000000" }
     },
     "plugins": [
       "expo-sensors",
-      ["expo-build-properties", { "android": { "kotlinVersion": "1.9.25" } }],
+      ["expo-build-properties", { "android": { "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25" } }],
       ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079" }]
     ]
   }
