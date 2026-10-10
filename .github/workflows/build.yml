@@ -1,4 +1,4 @@
-name: Build FungSui-Go v24 API36
+name: Build FungSui-Go v24 API36 - LapTime Same Stack
 on:
   workflow_dispatch
 jobs:
@@ -14,10 +14,7 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
 
       - name: Install deps
-        run: |
-          rm -rf node_modules android package-lock.json
-          npm install --legacy-peer-deps
-          rm -rf node_modules/jsc-android
+        run: npm install
 
       - name: Force app.json to 36 + v24 BEFORE prebuild
         run: |
@@ -30,6 +27,7 @@ jobs:
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
           j.expo.android.versionCode=24;
+          j.expo.version='1.0.0';
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           console.log('patched to 36 v24');
           "
@@ -37,7 +35,7 @@ jobs:
       - name: Expo prebuild
         run: npx expo prebuild --clean
 
-      - name: ULTIMATE FORCE Fix API 36
+      - name: ULTIMATE FORCE Fix API 36 - fix rootProject.ext
         run: |
           python3 - << 'PY'
           import pathlib, re
@@ -56,6 +54,8 @@ jobs:
               t = re.sub(r'targetSdkVersion\s*=?\s*34', 'targetSdkVersion = 36', t)
               t = re.sub(r'compileSdk\s*34', 'compileSdk 36', t)
               t = re.sub(r'targetSdk\s*34', 'targetSdk 36', t)
+              t = t.replace('compileSdkVersion 34','compileSdkVersion 36').replace('targetSdkVersion 34','targetSdkVersion 36')
+              t = t.replace(' 34',' 36')
               p.write_text(t)
           ap = pathlib.Path("android/app/build.gradle")
           s = ap.read_text()
@@ -63,6 +63,8 @@ jobs:
           ap.write_text(s)
           print("forced all to 36 and v24")
           PY
+          echo "=== AFTER MUST BE 36 v24 ==="
+          grep -R "targetSdk\|compileSdk\|versionCode\|rootProject.ext" android/build.gradle android/app/build.gradle | head -40
 
       - name: Use Permanent Keystore
         run: |
@@ -70,6 +72,7 @@ jobs:
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
           cp android/app/release.keystore android/release.keystore
           cp android/app/release.keystore android/app/upload-keystore.jks
+          keytool -list -v -keystore android/app/release.keystore -alias ${{ secrets.KEYSTONE_ALIAS }} -storepass ${{ secrets.KEYSTONE_PASSWORD }} | grep -E "Alias name|SHA1"
 
       - name: Inject signing
         run: |
@@ -87,8 +90,34 @@ jobs:
       - name: Build AAB + APK
         run: |
           cd android
+          cat > /tmp/fix.py << 'PY'
+          import pathlib, re
+          p = pathlib.Path("app/build.gradle").read_text()
+          new_block = """
+          signingConfigs {
+              debug {
+                  storeFile file('debug.keystore')
+                  storePassword 'android'
+                  keyAlias 'androiddebugkey'
+                  keyPassword 'android'
+              }
+              release {
+                  storeFile file('release.keystore')
+                  storePassword System.getenv("KS_PASS") ?: "123456"
+                  keyAlias System.getenv("KS_ALIAS") ?: "lapgo"
+                  keyPassword System.getenv("KS_PASS") ?: "123456"
+              }
+          }
+          """
+          p = re.sub(r'signingConfigs\s*\{.*?^\s*\}\s*\n\s*buildTypes', new_block + '\nbuildTypes', p, flags=re.MULTILINE|re.DOTALL)
+          if 'signingConfig signingConfigs.debug' in p:
+              p = p.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+          pathlib.Path("app/build.gradle").write_text(p)
+          print("Patched to release")
+          PY
+          python3 /tmp/fix.py
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lint
+          KS_PASS=${{ secrets.KEYSTONE_PASSWORD }} KS_ALIAS=${{ secrets.KEYSTONE_ALIAS }} ./gradlew bundleRelease assembleRelease --no-daemon
 
       - name: Upload AAB+APK to Release
         if: always()
