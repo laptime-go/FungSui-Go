@@ -17,7 +17,7 @@ export default function App(){
       <ScrollView contentContainerStyle={{alignItems:'center',paddingBottom:130,paddingTop:10}} style={{width:'100%'}}>
         <Text style={s.title}>風水佬Go {Math.round(h)}° {ready?'✓':''}</Text>
         <View style={[s.luo,{transform:[{rotate:`${-h}deg`}]}]}><Text style={{color:'#fff'}}>▲ {Math.round(h)}°</Text></View>
-        <View style={s.box}><Text style={s.r}>財位檢查 - {["正北","東北","正東","東南","正南","西南","正西","西北"][Math.round(h/45)%8]}</Text>
+        <View style={s.box}><Text style={s.r}>財位: {["正北","東北","正東","東南","正南","西南","正西","西北"][Math.round(h/45)%8]}</Text>
           <TouchableOpacity style={s.btn} onPress={()=>{ try{interRef.current?.show();}catch(e){} }}><Text style={s.btnT}>💰 睇催財秘法</Text></TouchableOpacity>
         </View>
         <View style={s.nativeBox}>{ready&&<BannerAd unitId={NATIVE} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
