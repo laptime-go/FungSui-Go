@@ -5,47 +5,20 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./icon.jpg",
-    "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./icon.jpg",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+    "splash": { "backgroundColor": "#000000", "resizeMode": "contain", "image": "./icon.jpg" },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./icon.jpg",
-        "backgroundColor": "#000000"
-      },
       "package": "com.laptimego.fungsui",
-      "versionCode": 21,
+      "versionCode": 18,
+      "adaptiveIcon": { "foregroundImage": "./icon.jpg", "backgroundColor": "#000000" },
       "permissions": ["com.google.android.gms.permission.AD_ID"],
       "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION"]
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "minSdkVersion": 24,
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36,
-            "buildToolsVersion": "36.0.0",
-            "kotlinVersion": "1.9.22"
-          }
-        }
-      ],
-      [
-        "expo-sensors",
-        {
-          "motionPermission": "Allow $(PRODUCT_NAME) to access motion sensors for compass"
-        }
-      ],
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-9890149028563226~8454882079"
-        }
-      ]
+      "expo-sensors",
+      ["expo-build-properties", { "android": { "minSdkVersion": 24, "compileSdkVersion": 36, "targetSdkVersion": 36, "buildToolsVersion": "36.0.0", "kotlinVersion": "1.9.25" } }],
+      ["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-9890149028563226~8454882079" }]
     ]
   }
 }
