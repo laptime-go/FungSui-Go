@@ -211,7 +211,7 @@ export default function App(){
       </View>
     </View>
   );
-    }const s=StyleSheet.create({
+                  }const s=StyleSheet.create({
   container:{flex:1, backgroundColor:'#080800', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:10, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
