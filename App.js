@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, RewardedAd, RewardedAdEventType, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const IDS = {
   banner: "ca-app-pub-9890149028563226/7565306387",
@@ -25,14 +25,14 @@ const MOUNTAINS_INFO = [
   {m:"乾",gua:"乾",wu:"金",deg:"307.5-322.5",cai:"天財"}, {m:"亥",gua:"乾",wu:"水",deg:"322.5-337.5",cai:"長線財"},
 ];
 const FLY_2026 = {
-  "正北": {star:"一白", name:"偏財位", cai:95, color:"#D4AF37", good:true, desc:"2026一白入正北，最大偏財位", lay:"正北放一杯清水+6枚硬幣，養黑魚，錢包向北，忌紅色。"},
-  "東北": {star:"八白", name:"正財帝位", cai:99, color:"#FFD700", good:true, desc:"2026八白最旺，正財帝王位", lay:"東北放黃水晶聚寶盆+五帝錢，保險箱放此位，最旺。"},
-  "正東": {star:"三碧", name:"是非位", cai:20, color:"#FF6B6B", good:false, desc:"三碧是非，易有合約破財", lay:"放紅地氈+紅燈，用紅文件夾，忌魚缸。"},
-  "東南": {star:"四綠", name:"文昌位", cai:82, color:"#51CF66", good:true, desc:"文昌利考試寫作流量", lay:"四枝富貴竹+文昌塔放東南，直播寫嘢向東南。"},
-  "正南": {star:"九紫", name:"喜慶位", cai:90, color:"#FF69B4", good:true, desc:"九紫喜慶，人緣財", lay:"9枝紅花+紅燈放正南，喜慶直播帶貨。"},
-  "西南": {star:"二黑", name:"病符位", cai:15, color:"#888", good:false, desc:"二黑病符注意健康破財", lay:"銅葫蘆+五帝錢，保持整潔。"},
-  "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", good:false, desc:"七赤易被盜騙", lay:"一杯清水+藍地氈，錢包唔放西。"},
-  "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", good:true, desc:"六白貴人帶財", lay:"金屬風鈴+六帝錢放西北，向西北坐談生意。"},
+  "正北": {star:"一白", name:"偏財位", cai:95, color:"#D4AF37", good:true, desc:"今年最旺偏財，人緣帶錢", lay:"正北放一杯清水，加6個硬幣，錢包向北放，唔好用紅色。"},
+  "東北": {star:"八白", name:"正財位", cai:99, color:"#FFD700", good:true, desc:"今年最旺正財位，事業最穩", lay:"東北放黃色水晶同五個銅錢，保險箱放呢度最旺。"},
+  "正東": {star:"三碧", name:"是非位", cai:20, color:"#FF6B6B", good:false, desc:"容易有口舌是非，小心合約", lay:"放紅色地氈同紅燈，唔好放魚缸。"},
+  "東南": {star:"四綠", name:"文昌位", cai:82, color:"#51CF66", good:true, desc:"利讀書考試，做直播寫作最旺", lay:"放4枝富貴竹，向東南做嘢。"},
+  "正南": {star:"九紫", name:"喜慶位", cai:90, color:"#FF69B4", good:true, desc:"人緣喜事多，帶動財運", lay:"放9枝紅花同暖燈，喜慶位做直播帶貨。"},
+  "西南": {star:"二黑", name:"病位", cai:15, color:"#888", good:false, desc:"注意健康，病會破財", lay:"放銅葫蘆，保持乾淨。"},
+  "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", good:false, desc:"容易破財被騙", lay:"放一杯清水同藍色地氈，錢包唔好放西邊。"},
+  "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", good:true, desc:"貴人幫手，談生意最旺", lay:"放金屬風鈴，向西北坐談生意。"},
 };function calcBazi(dateStr){
   try{
     var d=new Date(dateStr); if(isNaN(d.getTime())) return null;
@@ -66,7 +66,7 @@ export default function App(){
   var _s8=useState(null); var baziRes=_s8[0]; var setBaziRes=_s8[1];
   var _s9=useState(false); var unlockedCai=_s9[0]; var setUnlockedCai=_s9[1];
   var _s10=useState(0); var lastInter=_s10[0]; var setLastInter=_s10[1];
-  var interRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
+  var interRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
   useEffect(function(){
     var mSub=null; var aSub=null; var first=true;
@@ -91,50 +91,81 @@ export default function App(){
     return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); } }catch(err){} };
   },[]);
   useEffect(function(){ var t=setInterval(function(){ var d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2) setSmooth(function(v){return (v+d*0.3+360)%360;}); },33); return function(){ clearInterval(t); }; },[heading,smooth]);
-  useEffect(function(){ setTimeout(async function(){ try{ await mobileAds().initialize(); setAdsReady(true); var inter=InterstitialAd.createForAdRequest(IDS.inter,{requestNonPersonalizedAdsOnly:true}); interRef.current=inter; inter.load(); inter.addAdEventListener(AdEventType.LOADED,function(){setInterReady(true);}); inter.addAdEventListener(AdEventType.CLOSED,function(){ setLastInter(Date.now()); inter.load(); }); AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true}).load(); }catch(err){} },800); },[]);
+  useEffect(function(){ setTimeout(async function(){
+    try{
+      await mobileAds().initialize(); setAdsReady(true);
+      var rew=RewardedAd.createForAdRequest(IDS.inter,{requestNonPersonalizedAdsOnly:true});
+      interRef.current=rew; rew.load();
+      rew.addAdEventListener(RewardedAdEventType.LOADED,function(){setInterReady(true);});
+      rew.addAdEventListener(AdEventType.CLOSED,function(){ setLastInter(Date.now()); rew.load(); });
+      var appOpen=AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true});
+      appOpenRef.current=appOpen;
+      appOpen.addAdEventListener(AdEventType.LOADED,function(){ try{ appOpen.show(); }catch(e){} });
+      appOpen.load();
+    }catch(err){}
+  },800); },[]);
   var currentMountain=useMemo(function(){ var i=Math.floor((smooth+7.5)/15)%24; return MOUNTAINS_INFO[i]||MOUNTAINS_INFO[0]; },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
-  var showInter=function(cb){ Alert.alert("提示","查看詳細佈局將播放廣告，可跳過",[{text:"取消",style:"cancel"},{text:"繼續",onPress:function(){ var now=Date.now(); if(interReady&&now-lastInter>25000&&interRef.current){ var u=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){cb();u();}); interRef.current.show().catch(function(){cb();}); } else cb(); }}]); };  if(tab==='finance'){
+  var showInter=function(cb){
+    Alert.alert("解鎖佈局","睇完15秒廣告先解鎖",[
+      {text:"取消",style:"cancel"},
+      {text:"睇廣告解鎖",onPress:function(){
+        var now=Date.now();
+        if(interReady&&now-lastInter>25000&&interRef.current){
+          var earned=false;
+          var u1=interRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
+          var u2=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ u1(); u2(); if(earned){ cb(); } else { Alert.alert("未完成","要睇完整個廣告先解鎖"); } });
+          interRef.current.show().catch(function(){cb();});
+        } else cb();
+      }}
+    ]);
+  };  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
-          <Text style={s.bigTitle}>財位總覽</Text><Text style={s.bigSub}>今日{daily.date} 財神在 {daily.caiDir} 喜神在 {daily.xiDir} 穿{daily.col}</Text>
-          {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard, isToday && s.fCardToday, {borderColor:v.color}]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} 財力{v.cai}% {v.star} {isToday?'★今日財神':''}</Text><Text style={s.fD}>{v.desc}</Text><Text style={s.fL}>佈局: {v.lay}</Text></View>); })}
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:130}}>
+          <Text style={s.bigTitle}>財位總覽</Text><Text style={s.bigSub}>今日{daily.date} 財神在 {daily.caiDir} 喜神在 {daily.xiDir} 穿{daily.col}色最旺</Text>
+          {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard, isToday && s.fCardToday, {borderColor:v.color}]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} 財力{v.cai}% {v.star} {isToday?'★今日財神':''}</Text><Text style={s.fD}>{v.desc}</Text><Text style={s.fL}>點做: {v.lay}</Text></View>); })}
         </ScrollView>
-        <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        <View style={s.bottomWrapper}>
+          <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        </View>
       </View>
     );
   }
   if(tab==='settings'){
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:130}}>
           <Text style={s.bigTitle}>設定</Text><Text style={s.bigSub}>{magDebug} {Math.round(smooth)}° 今日財神{daily.caiDir}</Text>
           <View style={s.setCard}><Text style={s.setT}>羅盤 ✓ {Math.round(smooth)}°</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua} {currentMountain.wu}行 • {currentMountain.deg}°{'\n'}今日財神 {daily.caiDir} 喜神 {daily.xiDir} 幸運色 {daily.col}</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','1.遠離電腦喇叭 2.平放 3.畫8字');}}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity></View>
           <View style={s.setCard}><Text style={s.setT}>資料儲存</Text><Text style={s.setD}>{baziInput||'未設定'}</Text><TouchableOpacity style={s.darkBtn} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity></View>
         </ScrollView>
-        <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        <View style={s.bottomWrapper}>
+          <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        </View>
       </View>
     );
-    }  if(tab==='bazi'){
+  }  if(tab==='bazi'){
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:160}}>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:130}}>
           <Text style={s.bigTitle}>八字參考</Text><Text style={s.bigSub}>喜用神配今日財神{daily.caiDir} • {magDebug}</Text>
           <View style={[s.card,{width:'92%'}]}><TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col+" 今日財神"+daily.caiDir+(baziRes.dir===daily.caiDir?" ★超級財日":""))}</Text></View>}</View>
           <View style={s.nativeBox}>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
-        <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        <View style={s.bottomWrapper}>
+          <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        </View>
       </View>
     );
   }
   return (
     <View style={s.container}>
-      <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:170, paddingTop:10}}>
+      <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:130, paddingTop:10}}>
         <View style={s.topBar}><Text style={s.bigTitle}>風水佬Go {Math.round(smooth)}°</Text><Text style={s.bigSub}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
         <View style={s.luoPanWrap}>
           <View style={s.luoPanOuter}>
@@ -148,14 +179,16 @@ export default function App(){
           <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /></View>
           <View style={s.northBadge}><Text style={s.northBadgeT}>北 {Math.round(smooth)}°</Text></View>
         </View>
-        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{fontSize:15}]}>{fly.desc} 今日財神{daily.caiDir}穿{daily.col}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>查看詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay} • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}色</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享財位</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
+        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{fontSize:15}]}>{fly.desc} 今日財神{daily.caiDir}穿{daily.col}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>查看詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>點做: {fly.lay} • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}色</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享財位</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
         <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
       </ScrollView>
-      <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-      <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+      <View style={s.bottomWrapper}>
+        <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
+        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+      </View>
     </View>
   );
-      }const s=StyleSheet.create({
+    }const s=StyleSheet.create({
   container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
@@ -178,8 +211,9 @@ export default function App(){
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
   nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:10, marginTop:18, alignItems:'center', minHeight:280, borderWidth:1, borderColor:'#222'},
   adLabel:{color:'#666', fontSize:10, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
-  bottomAd:{position:'absolute', bottom:0, width:'100%', alignItems:'center', backgroundColor:'#000', height:54, borderTopWidth:1, borderColor:'#222'},
-  tabBar:{position:'absolute', bottom:54, flexDirection:'row', width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', height:56},
+  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222'},
+  tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
+  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:54},
   tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
   fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
   fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
