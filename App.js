@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, RewardedAd, RewardedAdEventType, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-const IDS = {
-  banner: "ca-app-pub-9890149028563226/7565306387",
-  inter: "ca-app-pub-9890149028563226/5859110495",
-  appopen: "ca-app-pub-9890149028563226/1285440667",
-  native: "ca-app-pub-9890149028563226/9108090368"
-};
+const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
+const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
+const OPEN_ID = "ca-app-pub-9890149028563226/1285440667";
+const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
 const MOUNTAINS_INFO = [
   {m:"壬",gua:"坎",wu:"水",deg:"337.5-352.5",cai:"偏財",col:"#4A90E2"}, {m:"子",gua:"坎",wu:"水",deg:"352.5-7.5",cai:"帝旺",col:"#4A90E2"},
   {m:"癸",gua:"坎",wu:"水",deg:"7.5-22.5",cai:"橫財",col:"#4A90E2"}, {m:"丑",gua:"艮",wu:"土",deg:"22.5-37.5",cai:"金庫",col:"#D4AF37"},
@@ -32,24 +30,7 @@ const FLY_2026 = {
   "西南": {star:"二黑", name:"病位", cai:15, color:"#888", good:false, desc:"注意健康，病會破財", lay:"放銅葫蘆，保持乾淨。"},
   "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", good:false, desc:"容易破財被騙", lay:"放一杯清水同藍色地氈，錢包唔好放西邊。"},
   "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", good:true, desc:"貴人幫手，談生意最旺", lay:"放金屬風鈴，向西北坐談生意。"},
-};function NativeBox(){
-  var _s=useState(null); var loadedAd=_s[0]; var setLoadedAd=_s[1];
-  useEffect(function(){
-    var a=NativeAd.createForAdRequest(IDS.native,{requestNonPersonalizedAdsOnly:true});
-    a.load();
-    var sub=a.addAdEventListener(AdEventType.LOADED,function(){ setLoadedAd(a); });
-    return function(){ try{sub();}catch(e){} };
-  },[]);
-  if(!loadedAd) return (<View style={s.nativeBox}><Text style={s.adLabel}>推薦內容載入中...</Text></View>);
-  return (
-    <NativeAdView nativeAd={loadedAd} style={s.nativeBox}>
-      <Text style={s.adLabel}>推薦內容</Text>
-      <NativeMediaView style={{width:'92%', height:170, backgroundColor:'#222', borderRadius:10, marginTop:6}} />
-      <View style={{width:'92%', marginTop:8}}><Text style={{color:'#FFD700', fontWeight:'bold', fontSize:14}}><NativeAsset assetType={NativeAssetType.HEADLINE} /></Text><Text style={{color:'#999', fontSize:12, marginTop:4}}><NativeAsset assetType={NativeAssetType.BODY} /></Text></View>
-    </NativeAdView>
-  );
-}
-function calcBazi(dateStr){
+};function calcBazi(dateStr){
   try{
     var d=new Date(dateStr); if(isNaN(d.getTime())) return null;
     var stems=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
@@ -67,8 +48,7 @@ function getDaily(){
   var now=new Date(); var day=now.getDate();
   var yday=Math.floor((now - new Date(now.getFullYear(),0,0))/1000/60/60/24);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"];
-  var cai=dirs[(day*3+yday*2)%8]; var xi=dirs[(day*5+3)%8];
-  return {date:(now.getMonth()+1)+"月"+day+"日", caiDir:cai, xiDir:xi, col:["黑藍","黃金","綠色","紅紫","白金"][day%5]};
+  return {date:(now.getMonth()+1)+"月"+day+"日", caiDir:dirs[(day*3+yday*2)%8], xiDir:dirs[(day*5+3)%8], col:["黑藍","黃金","綠色","紅紫","白金"][day%5]};
 }
 export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
@@ -80,6 +60,7 @@ export default function App(){
   var _s7=useState(''); var baziInput=_s7[0]; var setBaziInput=_s7[1];
   var _s8=useState(null); var baziRes=_s8[0]; var setBaziRes=_s8[1];
   var _s9=useState(false); var unlockedCai=_s9[0]; var setUnlockedCai=_s9[1];
+  var _s10=useState(0); var lastInter=_s10[0]; var setLastInter=_s10[1];
   var interRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
   useEffect(function(){
@@ -90,8 +71,9 @@ export default function App(){
         try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ await Accelerometer.setUpdateInterval(200); }
         aSub=Accelerometer.addListener(function(){});
         mSub=Magnetometer.addListener(function(d){
-          if(first){ magF.current={x:d.x,y:d.y,z:d.z}; first=false; }
-          else { magF.current.x=magF.current.x*0.5+d.x*0.5; magF.current.y=magF.current.y*0.5+d.y*0.5; }
+          if(!d) return;
+          if(first){ magF.current={x:d.x||0,y:d.y||0,z:d.z||0}; first=false; }
+          else { magF.current.x=magF.current.x*0.5+(d.x||0)*0.5; magF.current.y=magF.current.y*0.5+(d.y||0)*0.5; }
           var x=magF.current.x; var y=magF.current.y;
           setMagDebug("今日財神"+daily.caiDir+" 喜神"+daily.xiDir);
           var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360; angle=(angle+180)%360;
@@ -108,30 +90,24 @@ export default function App(){
   useEffect(function(){ setTimeout(async function(){
     try{
       await mobileAds().initialize(); setAdsReady(true);
-      var rew=RewardedAd.createForAdRequest(IDS.inter,{requestNonPersonalizedAdsOnly:true});
-      interRef.current=rew; rew.load();
-      rew.addAdEventListener(RewardedAdEventType.LOADED,function(){setInterReady(true);});
-      rew.addAdEventListener(AdEventType.CLOSED,function(){ rew.load(); });
-      var appOpen=AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true});
-      appOpenRef.current=appOpen;
-      appOpen.addAdEventListener(AdEventType.LOADED,function(){ try{ appOpen.show(); }catch(e){} });
-      appOpen.load();
+      const interstitial = InterstitialAd.createForAdRequest(INTER_ID);
+      interRef.current=interstitial; interstitial.load();
+      interstitial.addAdEventListener(AdEventType.LOADED,function(){setInterReady(true);});
+      interstitial.addAdEventListener(AdEventType.CLOSED,function(){ setLastInter(Date.now()); interstitial.load(); });
+      const appOpenAd = AppOpenAd.createForAdRequest(OPEN_ID);
+      appOpenRef.current=appOpenAd;
+      appOpenAd.addAdEventListener(AdEventType.LOADED,function(){ setTimeout(function(){ try{ appOpenAd.show(); }catch(e){} },2000); });
+      appOpenAd.load();
     }catch(err){}
-  },800); },[]);
-  var currentMountain=useMemo(function(){ var i=(Math.floor((smooth+7.5)/15)+1)%24; return MOUNTAINS_INFO[i%24]; },[smooth]);
+  },1000); },[]);
+  var currentMountain=useMemo(function(){ var i=(Math.floor((smooth+7.5)/15)+1)%24; return MOUNTAINS_INFO[i%24]||MOUNTAINS_INFO[0]; },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
   var showInter=function(cb){
-    Alert.alert("解鎖佈局","睇完15秒廣告先解鎖",[
-      {text:"取消",style:"cancel"},
-      {text:"睇廣告解鎖",onPress:function(){
-        if(interReady&&interRef.current){
-          var earned=false;
-          var u1=interRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
-          var u2=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ u1(); u2(); if(earned){ cb(); } else { Alert.alert("未完成","要睇完整個廣告先解鎖，唔可以按返回"); } });
-          interRef.current.show().catch(function(){cb();});
-        } else { Alert.alert("廣告準備中","等2秒再試"); }
-      }}
-    ]);
+    var now=Date.now();
+    if(interReady&&now-lastInter>60000&&interRef.current){
+      var sub=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ sub(); cb(); });
+      interRef.current.show().catch(function(){ cb(); });
+    } else { cb(); }
   };  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
@@ -142,7 +118,7 @@ export default function App(){
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
         </View>
       </View>
     );
@@ -157,7 +133,7 @@ export default function App(){
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
         </View>
       </View>
     );
@@ -166,12 +142,12 @@ export default function App(){
       <View style={s.container}>
         <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:140}}>
           <Text style={s.bigTitle}>八字參考</Text><Text style={s.bigSub}>喜用神配今日財神{daily.caiDir} • {magDebug}</Text>
-          <View style={[s.card,{width:'92%'}]}><TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col+" 今日財神"+daily.caiDir+(baziRes.dir===daily.caiDir?" ★超級財日":""))}</Text></View>}</View>
-          <NativeBox />
+          <View style={[s.card,{width:'92%'}]}><TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(function(){}); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col+" 今日財神"+daily.caiDir+(baziRes.dir===daily.caiDir?" ★超級財日":""))}</Text></View>}</View>
+          <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
         </View>
       </View>
     );
@@ -181,70 +157,60 @@ export default function App(){
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:140, paddingTop:10}}>
         <View style={s.topBar}><Text style={s.bigTitle}>風水佬Go {Math.round(smooth)}°</Text><Text style={s.bigSub}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
         <View style={s.luoPanWrap}>
-          <View style={s.luoPanGlow} />
           <View style={s.luoPanOuter}>
-            <View style={s.luoPanRing2} />
             <View style={[s.luoPan, {transform:[{rotate:""+(-smooth)+"deg"}]}]}>
-              <View style={s.luoInnerRing} />
               <View style={s.luoInner}>
                 {MOUNTAINS_INFO.map(function(info,i){ var active=currentMountain && currentMountain.m===info.m; var upright = -i*15 + smooth; return (
                   <View key={info.m} style={[s.mountainMark, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-118}]}]}>
-                    <View style={[s.uprightWrap, {transform:[{rotate:""+upright+"deg"}]}]}>
+                    <View style={{transform:[{rotate:""+upright+"deg"}], alignItems:'center'}}>
                       <View style={[s.mountainDot, {backgroundColor:info.col}, active && s.mountainDotActive]} />
                       <Text style={[s.mountainText, {color: active? '#000' : info.col}, active && s.mountainActive]}>{info.m}</Text>
                     </View>
                   </View>
                 ); })}
-                <View style={s.centerOuter}><View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:16}}>{currentMountain.m}</Text><Text style={{color:'#333',fontSize:8, fontWeight:'bold'}}>{currentMountain.wu}</Text></View></View>
+                <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:14}}>{currentMountain.m}</Text></View>
               </View>
             </View>
           </View>
-          <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /><View style={s.needleDot} /></View>
-          <View style={s.northBadge}><Text style={s.northBadgeT}>▼ {currentDir} {Math.round(smooth)}° {currentMountain.gua}宮</Text></View>
+          <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /></View>
+          <View style={s.northBadge}><Text style={s.northBadgeT}>北 {Math.round(smooth)}° {currentDir}</Text></View>
         </View>
-        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{fontSize:15}]}>{fly.desc} 今日財神{daily.caiDir}穿{daily.col}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.gua}卦 {currentMountain.wu}行 • 宜 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>睇廣告解鎖詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>點做: {fly.lay} • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}色</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享財位</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
-        <NativeBox />
+        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{fontSize:15}]}>{fly.desc} 今日財神{daily.caiDir}穿{daily.col}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>睇廣告解鎖詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>點做: {fly.lay} • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}色</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享財位</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
+        <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
       </ScrollView>
       <View style={s.bottomWrapper}>
         <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
       </View>
     </View>
   );
-                  }const s=StyleSheet.create({
-  container:{flex:1, backgroundColor:'#080800', alignItems:'center'},
+      }const s=StyleSheet.create({
+  container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
-  topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:10, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
-  luoPanWrap:{width:340,height:380, alignItems:'center', justifyContent:'center', marginTop:12},
-  luoPanGlow:{position:'absolute', width:330, height:330, borderRadius:165, backgroundColor:'#D4AF3715', borderWidth:1, borderColor:'#D4AF3720'},
-  luoPanOuter:{width:310,height:310, borderRadius:155, borderWidth:4, borderColor:'#D4AF37', backgroundColor:'#1A1500', alignItems:'center', justifyContent:'center'},
-  luoPanRing2:{position:'absolute', width:292, height:292, borderRadius:146, borderWidth:1, borderColor:'#8B7320', borderStyle:'dashed'},
-  luoPan:{width:278,height:278, borderRadius:139, borderWidth:1, borderColor:'#332800', backgroundColor:'#0F0F0F', alignItems:'center', justifyContent:'center'},
-  luoInnerRing:{position:'absolute', width:235, height:235, borderRadius:117, borderWidth:1, borderColor:'#222'},
-  luoInner:{width:210,height:210, borderRadius:105, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center', backgroundColor:'#141414'},
-  mountainMark:{position:'absolute', top:'50%', left:'50%', width:30, marginLeft:-15, marginTop:-16, alignItems:'center'},
-  uprightWrap:{alignItems:'center', justifyContent:'center'},
+  topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
+  luoPanWrap:{width:320,height:350, alignItems:'center', justifyContent:'center', marginTop:18},
+  luoPanOuter:{width:310,height:310, borderRadius:155, borderWidth:3, borderColor:'#D4AF37', backgroundColor:'#1A1500', alignItems:'center', justifyContent:'center'},
+  luoPan:{width:280,height:280, borderRadius:140, borderWidth:1, borderColor:'#332800', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
+  luoInner:{width:220,height:220, borderRadius:110, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
+  mountainMark:{position:'absolute', top:'50%', left:'50%', width:24, marginLeft:-12, marginTop:-12, alignItems:'center'},
   mountainDot:{width:4,height:4, borderRadius:2, marginBottom:2}, mountainDotActive:{width:6,height:6, borderRadius:3},
-  mountainText:{fontSize:14, fontWeight:'600', textAlign:'center'},
-  mountainActive:{color:'#000', fontWeight:'bold', fontSize:15, backgroundColor:'#FFD700', borderRadius:6, paddingHorizontal:6, paddingVertical:2, overflow:'hidden'},
-  centerOuter:{width:64,height:64,borderRadius:32,backgroundColor:'#fff',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#D4AF37'},
-  centerDot:{width:54,height:54,borderRadius:27,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center'},
-  fixedNeedleWrap:{position:'absolute', top:0, alignItems:'center', zIndex:10},
-  needleTri:{width:0, height:0, borderLeftWidth:12, borderRightWidth:12, borderTopWidth:18, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
-  needleLine:{width:3, height:22, backgroundColor:'#FF3B30', marginTop:-2}, needleDot:{width:8,height:8, borderRadius:4, backgroundColor:'#FF3B30', marginTop:-2, borderWidth:1, borderColor:'#fff'},
-  northBadge:{position:'absolute', bottom:5, backgroundColor:'#1a1a1a', paddingHorizontal:14, paddingVertical:6, borderRadius:12, borderWidth:1, borderColor:'#D4AF37'},
-  northBadgeT:{color:'#FFD700', fontSize:12, fontWeight:'bold'},
-  card:{width:'92%', backgroundColor:'#1c1c1e', borderRadius:16, padding:18, marginTop:16, borderWidth:1, borderColor:'#333'},
+  mountainText:{color:'#888', fontSize:13}, mountainActive:{color:'#000', fontWeight:'bold', fontSize:15, backgroundColor:'#FFD700', borderRadius:6, paddingHorizontal:5, paddingVertical:1},
+  centerDot:{width:52,height:52,borderRadius:26,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
+  fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center'},
+  needleTri:{width:0, height:0, borderLeftWidth:10, borderRightWidth:10, borderTopWidth:16, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
+  needleLine:{width:2, height:18, backgroundColor:'#FF3B30', marginTop:-2},
+  northBadge:{position:'absolute', bottom:0, backgroundColor:'#111', paddingHorizontal:12, paddingVertical:5, borderRadius:10, borderWidth:1, borderColor:'#D4AF37'},
+  northBadgeT:{color:'#FFD700', fontSize:11, fontWeight:'bold'},
+  card:{width:'92%', backgroundColor:'#1c1c1e', borderRadius:16, padding:18, marginTop:18, borderWidth:1, borderColor:'#333'},
   cardTitle:{fontWeight:'bold'}, cardDesc:{color:'#ddd', marginTop:8, lineHeight:22}, mountainDetail:{color:'#888', fontSize:12, marginTop:8},
   goldBtn:{backgroundColor:'#D4AF37', padding:14, borderRadius:12, marginTop:14, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold', fontSize:15},
   smallBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:10, borderRadius:10}, smallBtnT:{color:'#D4AF37', fontSize:13, fontWeight:'bold'},
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
-  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:10, marginTop:18, alignItems:'center', minHeight:270, borderWidth:1, borderColor:'#222'},
-  nativeBoxEmpty:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:20, marginTop:18, alignItems:'center', minHeight:100, borderWidth:1, borderColor:'#222'},
+  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:10, marginTop:18, alignItems:'center', minHeight:280, borderWidth:1, borderColor:'#222'},
   adLabel:{color:'#666', fontSize:10, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
-  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', paddingBottom:2},
+  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222'},
   tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
-  bottomAd:{width:'100%', height:50, alignItems:'center', justifyContent:'center', backgroundColor:'#000'},
+  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:54},
   tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
   fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
   fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
