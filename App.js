@@ -1,6 +1,5 @@
-// 第1貼 貼到 import 到 FLY_2026
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, Vibration, Switch, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, Vibration, Switch } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, AdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,43 +26,15 @@ const MOUNTAINS_INFO = [
   {m:"乾",gua:"乾",wu:"金",deg:"307.5-322.5",cai:"天財"}, {m:"亥",gua:"乾",wu:"水",deg:"322.5-337.5",cai:"長線財"},
 ];
 const FLY_2026 = {
-  "正北": {star:"一白", name:"偏財位", cai:95, color:"#D4AF37", good:true, desc:"一白入正北，今年最大偏財", lay:"正北放一杯清水+6枚硬幣，養黑魚，錢包向北，忌紅。"},
-  "東北": {star:"八白", name:"正財帝位", cai:99, color:"#FFD700", good:true, desc:"八白帝星，正財最旺", lay:"東北放黃水晶聚寶盆+五帝錢，保險箱放此，最旺。"},
-  "正東": {star:"三碧", name:"是非位", cai:20, color:"#FF6B6B", good:false, desc:"三碧是非位，合約要小心", lay:"放紅地氈+紅燈，文件用紅色，忌魚缸。"},
-  "東南": {star:"四綠", name:"文昌位", cai:82, color:"#51CF66", good:true, desc:"文昌位，考試直播最利", lay:"四枝富貴竹+文昌塔放東南，向東南寫嘢直播。"},
-  "正南": {star:"九紫", name:"喜慶位", cai:90, color:"#FF69B4", good:true, desc:"九紫喜慶，人緣帶財", lay:"9枝紅花+暖燈放正南，喜慶直播帶貨。"},
-  "西南": {star:"二黑", name:"病符位", cai:15, color:"#888", good:false, desc:"病符位，注意健康破財", lay:"銅葫蘆+五帝錢，保持乾淨。"},
-  "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", good:false, desc:"七赤破財，防盜防騙", lay:"一杯清水+藍地氈，錢包唔放西。"},
-  "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", good:true, desc:"六白貴人，談生意最旺", lay:"金屬風鈴+六帝錢放西北，向西北坐談生意。"},
-};// 第3貼 財位總覽 + 設定
-  if(tab==='finance'){
-    return (
-      <View style={[s.container,{backgroundColor:theme.bg}]}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:20,paddingBottom:160}}>
-          <Text style={[s.bigTitle,{color:theme.gold}]}>財位總覽</Text><Text style={[s.bigSub,{color:theme.sub}]}>{daily.date} 財神 {daily.caiDir} 喜神 {daily.xiDir} • 穿{daily.col} 幸運 {daily.num}</Text>
-          <View style={[s.scoreBanner,{backgroundColor:theme.card, borderColor:theme.gold}]}><Text style={s.scoreLabel}>今日偏財指數</Text><Text style={s.scoreNum}>{daily.score}%</Text><Text style={[s.scoreSub,{color:theme.text2}]}>吉時 {daily.hour} 向{daily.caiDir}最旺 • 穿{daily.col}</Text></View>
-          {Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;}).map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard,{backgroundColor:theme.card, borderColor:isToday?theme.gold:theme.border}, isToday && {borderWidth:2}]}><View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[s.fT,{color:isToday?theme.gold:v.color}]}>{k} {v.name}</Text><View style={{flexDirection:'row'}}><Text style={{color:v.color, fontWeight:'bold'}}>{v.cai}%</Text>{isToday && <View style={[s.badge,{marginLeft:8}]}><Text style={s.badgeT}>今日財神</Text></View>}</View></View><Text style={[s.fD,{color:theme.text2}]}>{v.desc}</Text><Text style={[s.fL,{color:theme.text}]}>{v.lay}</Text></View>); })}
-        </ScrollView>
-        <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
-      </View>
-    );
-  }
-  if(tab==='settings'){
-    return (
-      <View style={[s.container,{backgroundColor:theme.bg}]}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:20,paddingBottom:160}}>
-          <Text style={[s.bigTitle,{color:theme.gold}]}>設定</Text>
-          <View style={[s.setCard,{backgroundColor:theme.card, borderColor:theme.border}]}><View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}><View><Text style={[s.setT,{color:theme.text}]}>日夜模式</Text><Text style={[s.setD,{color:theme.text2, marginTop:2}]}>{isDark?'黑金護眼':'白金清晰'}</Text></View><Switch value={isDark} onValueChange={toggleTheme} thumbColor={theme.gold} trackColor={{false:'#ccc', true:'#332800'}} /></View></View>
-          <View style={[s.setCard,{backgroundColor:theme.card, borderColor:theme.border}]}><Text style={[s.setT,{color:theme.text}]}>羅盤 {Math.round(smooth)}° 已校準</Text><Text style={[s.setD,{color:theme.text2}]}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行{'\n'}財神 {daily.caiDir} 喜神 {daily.xiDir} {daily.col} {daily.num}號{'\n'}{magDebug}</Text></View>
-          <View style={[s.setCard,{backgroundColor:theme.card, borderColor:theme.border}]}><Text style={[s.setT,{color:theme.text}]}>八字資料</Text><Text style={[s.setD,{color:theme.text2}]}>{baziInput||'未設定 YYYY-MM-DD'}</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={[s.miniBtn,{backgroundColor:theme.gold}]} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.miniBtnT}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.miniBtn,{marginLeft:8, backgroundColor:theme.border}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={[s.miniBtnT,{color:theme.text}]}>清除</Text></TouchableOpacity></View></View>
-        </ScrollView>
-        <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
-      </View>
-    );
-    }// 第2貼 接住貼
-function getDaily(){
+  "正北": {star:"一白", name:"偏財位", cai:95, color:"#D4AF37", desc:"一白入正北，今年最大偏財", lay:"正北放一杯清水+6枚硬幣，養黑魚，錢包向北，忌紅。"},
+  "東北": {star:"八白", name:"正財帝位", cai:99, color:"#FFD700", desc:"八白帝星，正財最旺", lay:"東北放黃水晶聚寶盆+五帝錢，保險箱放此，最旺。"},
+  "正東": {star:"三碧", name:"是非位", cai:20, color:"#FF6B6B", desc:"三碧是非位", lay:"放紅地氈+紅燈，忌魚缸。"},
+  "東南": {star:"四綠", name:"文昌位", cai:82, color:"#51CF66", desc:"文昌位", lay:"四枝富貴竹+文昌塔放東南。"},
+  "正南": {star:"九紫", name:"喜慶位", cai:90, color:"#FF69B4", desc:"九紫喜慶", lay:"9枝紅花+暖燈放正南。"},
+  "西南": {star:"二黑", name:"病符位", cai:15, color:"#888", desc:"病符位", lay:"銅葫蘆+五帝錢。"},
+  "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", desc:"七赤破財", lay:"一杯清水+藍地氈。"},
+  "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", desc:"六白貴人", lay:"金屬風鈴+六帝錢放西北。"},
+};function getDaily(){
   var now=new Date(); var day=now.getDate();
   var yday=Math.floor((now - new Date(now.getFullYear(),0,0))/1000/60/60/24);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"];
@@ -83,11 +54,10 @@ function calcBazi(dateStr){
     var map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
     var five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; five[map[dayStem]]++;
     var weak=Object.entries(five).sort(function(a,b){return a[1]-b[1];})[0][0];
-    var lucky={木:{el:"火",dir:"正南",col:"紅紫色"},火:{el:"土",dir:"西南",col:"黃色"},土:{el:"金",dir:"正西",col:"白金色"},金:{el:"水",dir:"正北",col:"黑藍色"},水:{el:"木",dir:"正東",col:"綠色"}};
+    var lucky={木:{dir:"正南",col:"紅紫色"},火:{dir:"西南",col:"黃色"},土:{dir:"正西",col:"白金色"},金:{dir:"正北",col:"黑藍色"},水:{dir:"正東",col:"綠色"}};
     return {full:y+"年 "+yearStem+"命 日主"+dayStem, xi:weak, dir:lucky[weak].dir, col:lucky[weak].col};
   }catch(err){ return null; }
 }
-
 export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
@@ -100,14 +70,8 @@ export default function App(){
   var _s9=useState(false); var unlockedCai=_s9[0]; var setUnlockedCai=_s9[1];
   var _s10=useState(0); var lastInter=_s10[0]; var setLastInter=_s10[1];
   var _s11=useState(false); var isDark=_s11[0]; var setIsDark=_s11[1];
-  var _s12=useState(false); var locked=_s12[0]; var setLocked=_s12[1];
-  var pulse=useRef(new Animated.Value(1)).current;
   var interRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
-
-  useEffect(function(){
-    Animated.loop(Animated.sequence([Animated.timing(pulse,{toValue:1.08,duration:900,useNativeDriver:true}), Animated.timing(pulse,{toValue:1,duration:900,useNativeDriver:true})])).start();
-  },[]);
   useEffect(function(){
     var mSub=null; var aSub=null; var first=true;
     (async function(){
@@ -116,7 +80,6 @@ export default function App(){
         try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ await Accelerometer.setUpdateInterval(200); }
         aSub=Accelerometer.addListener(function(){});
         mSub=Magnetometer.addListener(function(d){
-          if(locked) return;
           if(first){ magF.current={x:d.x,y:d.y,z:d.z}; first=false; }
           else { magF.current.x=magF.current.x*0.5+d.x*0.5; magF.current.y=magF.current.y*0.5+d.y*0.5; }
           var x=magF.current.x; var y=magF.current.y;
@@ -131,22 +94,44 @@ export default function App(){
       }catch(err){ setMagDebug('感應器錯誤:'+err.message); }
     })();
     return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); } }catch(err){} };
-  },[locked]);
+  },[]);
   useEffect(function(){ var t=setInterval(function(){ var d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2) setSmooth(function(v){return (v+d*0.3+360)%360;}); },33); return function(){ clearInterval(t); }; },[heading,smooth]);
   useEffect(function(){ setTimeout(async function(){ try{ await mobileAds().initialize(); setAdsReady(true); var inter=InterstitialAd.createForAdRequest(IDS.inter,{requestNonPersonalizedAdsOnly:true}); interRef.current=inter; inter.load(); inter.addAdEventListener(AdEventType.LOADED,function(){setInterReady(true);}); inter.addAdEventListener(AdEventType.CLOSED,function(){ setLastInter(Date.now()); inter.load(); }); AppOpenAd.createForAdRequest(IDS.appopen,{requestNonPersonalizedAdsOnly:true}).load(); }catch(err){} },800); },[]);
-
   var currentMountain=useMemo(function(){ var i=Math.floor((smooth+7.5)/15)%24; return MOUNTAINS_INFO[i]||MOUNTAINS_INFO[0]; },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
-  var showInter=function(cb){ Alert.alert("解鎖佈局","睇15秒廣告解鎖今日催財秘法",[{text:"取消",style:"cancel"},{text:"立即解鎖",onPress:function(){ var now=Date.now(); if(interReady&&now-lastInter>25000&&interRef.current){ var u=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){cb();u();}); interRef.current.show().catch(function(){cb();}); } else cb(); }}]); };
+  var showInter=function(cb){ Alert.alert("解鎖","睇廣告解鎖佈局",[{text:"取消",style:"cancel"},{text:"繼續",onPress:function(){ var now=Date.now(); if(interReady&&now-lastInter>25000&&interRef.current){ var u=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){cb();u();}); interRef.current.show().catch(function(){cb();}); } else cb(); }}]); };
   var theme=isDark?darkTheme:lightTheme;
-  var toggleTheme=async function(v){ setIsDark(v); await AsyncStorage.setItem('theme_v1', v?'dark':'light'); };
-  var onCuicai=function(){ Vibration.vibrate([0,40,30,80]); Share.share({message:"風水佬Go • 今日財運"+daily.score+"% • 財神在"+daily.caiDir+" 穿"+daily.col+" 吉時"+daily.hour+" • "+currentDir+fly.name+" • "+fly.lay}); };// 第4貼 八字 + 羅盤
-  if(tab==='bazi'){
+  var toggleTheme=async function(v){ setIsDark(v); await AsyncStorage.setItem('theme_v1', v?'dark':'light'); };  if(tab==='finance'){
     return (
       <View style={[s.container,{backgroundColor:theme.bg}]}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:20,paddingBottom:160}}>
-          <Text style={[s.bigTitle,{color:theme.gold}]}>八字參考</Text><Text style={[s.bigSub,{color:theme.sub}]}>今日財神{daily.caiDir} 吉時{daily.hour} 穿{daily.col}</Text>
-          <View style={[s.card,{width:'92%', backgroundColor:theme.card, borderColor:theme.border}]}><TextInput style={[s.input,{backgroundColor:theme.inputBg, color:theme.text, borderColor:theme.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#888" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={[s.goldBtn,{marginTop:12}]} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>分析喜用</Text></TouchableOpacity>{baziRes && <View style={[s.unlockedBox,{backgroundColor:theme.inputBg}]}><Text style={[s.unlockedText,{color:theme.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" 穿"+baziRes.col+" ★今日財神"+daily.caiDir+(baziRes.dir===daily.caiDir?" 超級財日 "+daily.hour+"必成":""))}</Text></View>}</View>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
+          <Text style={[s.bigTitle,{color:theme.gold}]}>財位總覽</Text><Text style={[s.bigSub,{color:theme.sub}]}>{daily.date} 財神 {daily.caiDir} 喜神 {daily.xiDir} • 穿{daily.col}</Text>
+          <View style={[s.scoreBanner,{backgroundColor:theme.card, borderColor:theme.gold}]}><Text style={s.scoreLabel}>今日偏財指數</Text><Text style={s.scoreNum}>{daily.score}%</Text><Text style={[s.scoreSub,{color:theme.text2}]}>吉時 {daily.hour} 向{daily.caiDir}最旺</Text></View>
+          {Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;}).map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard,{backgroundColor:theme.card, borderColor:isToday?theme.gold:theme.border}, isToday && {borderWidth:2}]}><View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[s.fT,{color:isToday?theme.gold:v.color}]}>{k} {v.name}</Text><View style={{flexDirection:'row'}}><Text style={{color:v.color, fontWeight:'bold'}}>{v.cai}%</Text>{isToday && <View style={[s.badge,{marginLeft:8}]}><Text style={s.badgeT}>今日財神</Text></View>}</View></View><Text style={[s.fD,{color:theme.text2}]}>{v.desc}</Text><Text style={[s.fL,{color:theme.text}]}>{v.lay}</Text></View>); })}
+        </ScrollView>
+        <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>設定</Text></TouchableOpacity></View>
+        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+      </View>
+    );
+  }
+  if(tab==='settings'){
+    return (
+      <View style={[s.container,{backgroundColor:theme.bg}]}>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
+          <Text style={[s.bigTitle,{color:theme.gold}]}>設定</Text>
+          <View style={[s.setCard,{backgroundColor:theme.card, borderColor:theme.border}]}><View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}><View><Text style={[s.setT,{color:theme.text}]}>日夜模式</Text><Text style={[s.setD,{color:theme.text2}]}>{isDark?'黑金護眼':'白金清晰'}</Text></View><Switch value={isDark} onValueChange={toggleTheme} thumbColor={theme.gold} trackColor={{false:'#ccc', true:'#332800'}} /></View></View>
+          <View style={[s.setCard,{backgroundColor:theme.card, borderColor:theme.border}]}><Text style={[s.setT,{color:theme.text}]}>羅盤 {Math.round(smooth)}° 已校準 • 財神{daily.caiDir}</Text><Text style={[s.setD,{color:theme.text2}]}>坐{currentMountain.m}山 {currentMountain.deg}°{'\n'}財神 {daily.caiDir} 喜神 {daily.xiDir} {daily.col} {daily.num}號{'\n'}{magDebug}</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離電腦，畫8字');}}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity></View>
+        </ScrollView>
+        <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>設定</Text></TouchableOpacity></View>
+        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
+      </View>
+    );
+}  if(tab==='bazi'){
+    return (
+      <View style={[s.container,{backgroundColor:theme.bg}]}>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:160}}>
+          <Text style={[s.bigTitle,{color:theme.gold}]}>八字參考</Text><Text style={[s.bigSub,{color:theme.sub}]}>今日財神{daily.caiDir} 吉時{daily.hour}</Text>
+          <View style={[s.card,{width:'92%', backgroundColor:theme.card, borderColor:theme.border}]}><TextInput style={[s.input,{backgroundColor:theme.inputBg, color:theme.text, borderColor:theme.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#888" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={[s.goldBtn,{marginTop:12}]} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={[s.unlockedBox,{backgroundColor:theme.inputBg}]}><Text style={[s.unlockedText,{color:theme.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" 穿"+baziRes.col)}</Text></View>}</View>
           <View style={[s.nativeBox,{backgroundColor:theme.card, borderColor:theme.border}]}>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
         <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>設定</Text></TouchableOpacity></View>
@@ -158,52 +143,51 @@ export default function App(){
     <View style={[s.container,{backgroundColor:theme.bg}]}>
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:170, paddingTop:0}}>
         <View style={[s.topBar,{backgroundColor:theme.topBar, borderColor:theme.border}]}>
-          <View style={{flexDirection:'row', alignItems:'baseline'}}><Text style={[s.bigTitle,{color:theme.gold, fontSize:26}]}>{Math.round(smooth)}°</Text><Text style={[s.bigTitle,{color:theme.gold, fontSize:18, marginLeft:8}]}>風水佬Go</Text><Text style={[s.bigSub,{color:theme.sub, marginLeft:8}]}>{currentMountain.m}山 {currentDir}</Text></View>
-          <View style={{flexDirection:'row', marginTop:4}}><View style={[s.pill,{backgroundColor:theme.gold}]}><Text style={s.pillT}>財神 {daily.caiDir}</Text></View><View style={[s.pill,{backgroundColor:theme.inputBg, marginLeft:6, borderWidth:1, borderColor:theme.border}]}><Text style={[s.pillT,{color:theme.text}]}>喜神 {daily.xiDir}</Text></View><View style={[s.pill,{backgroundColor:theme.inputBg, marginLeft:6, borderWidth:1, borderColor:theme.border}]}><Text style={[s.pillT,{color:theme.text}]}>{daily.hour} {daily.hourName}</Text></View></View>
+          <Text style={[s.bigTitle,{color:theme.gold, fontSize:26}]}>{Math.round(smooth)}° 風水佬Go</Text>
+          <View style={{flexDirection:'row', marginTop:6}}><View style={[s.pill,{backgroundColor:theme.gold}]}><Text style={s.pillT}>財神 {daily.caiDir}</Text></View><View style={[s.pill,{backgroundColor:theme.inputBg, marginLeft:6, borderWidth:1, borderColor:theme.border}]}><Text style={[s.pillT,{color:theme.text}]}>喜神 {daily.xiDir}</Text></View><View style={[s.pill,{backgroundColor:theme.inputBg, marginLeft:6, borderWidth:1, borderColor:theme.border}]}><Text style={[s.pillT,{color:theme.text}]}>{daily.hour}</Text></View></View>
         </View>
         <View style={s.luoPanWrap}>
           <View style={[s.luoPanOuter,{borderColor:theme.gold, backgroundColor:theme.compassOuter}]}>
             <View style={[s.luoPan, {transform:[{rotate:""+(-smooth)+"deg"}], borderColor:theme.border, backgroundColor:theme.compassBg}]}>
               <View style={[s.luoInner,{borderColor:theme.border2}]}>
-                {MOUNTAINS_24.map(function(m,i){ var active=currentMountain && currentMountain.m===m; return (<View key={m} style={[s.mountainMark, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-106}]}]}><View style={{transform:[{rotate:""+(i*15+smooth)+"deg"}]}}><Text style={[s.mountainText, {color:active? '#000' : theme.compassText}, active && {backgroundColor:theme.gold, fontWeight:'bold', paddingHorizontal:5, borderRadius:7, fontSize:14}]}>{m}</Text></View></View>); })}
+                {MOUNTAINS_24.map(function(m,i){ var active=currentMountain && currentMountain.m===m; return (<View key={m} style={[s.mountainMark, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-106}]}]}><Text style={[s.mountainText, {color:active? '#000' : theme.compassText}, active && {backgroundColor:theme.gold, fontWeight:'bold', paddingHorizontal:5, borderRadius:7}]}>{m}</Text></View>); })}
               </View>
-              <View style={s.tickLayer}>{Array.from({length:24}).map(function(_,i){ return (<View key={i} style={[s.tick, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-130}], backgroundColor:i%6===0?theme.gold:theme.border2, height:i%6===0?10:6}]} />); })}</View>
             </View>
           </View>
           <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /></View>
-          <Animated.View style={[s.centerDot,{backgroundColor:theme.gold, borderColor:theme.bg, transform:[{scale:pulse}]}]}><Text style={{color:'#000',fontWeight:'bold',fontSize:17}}>{currentMountain.m}</Text></Animated.View>
+          <View style={[s.centerDot,{backgroundColor:theme.gold, borderColor:theme.bg}]}><Text style={{color:'#000',fontWeight:'bold',fontSize:17}}>{currentMountain.m}</Text></View>
+          <View style={s.northBadge}><Text style={s.northBadgeT}>北 {Math.round(smooth)}°</Text></View>
         </View>
-        <View style={[s.scoreCard,{backgroundColor:theme.card, borderColor:theme.gold}]}><View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}><View><Text style={[s.scoreCardT,{color:theme.text}]}>今日偏財指數</Text><Text style={[s.scoreCardSub,{color:theme.text2}]}>坐{currentMountain.m}山 • {currentMountain.wu}行 • {currentMountain.cai}</Text></View><Text style={s.scoreCardNum}>{daily.score}%</Text></View><View style={{flexDirection:'row', marginTop:10}}><View style={[s.infoPill,{backgroundColor:theme.inputBg}]}><Text style={[s.infoPillT,{color:theme.text}]}>穿 {daily.col}</Text></View><View style={[s.infoPill,{backgroundColor:theme.inputBg, marginLeft:6}]}><Text style={[s.infoPillT,{color:theme.text}]}>幸運 {daily.num}</Text></View><View style={[s.infoPill,{backgroundColor:theme.inputBg, marginLeft:6}]}><Text style={[s.infoPillT,{color:theme.text}]}>{currentDir} {fly.star}</Text></View></View></View>
-        <View style={[s.card, {backgroundColor:theme.card, borderColor: fly.color, borderWidth:1.2}]}><View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[s.cardTitle, {color:fly.color}]}>{currentDir} {fly.star}{fly.name}</Text><TouchableOpacity onPress={function(){setLocked(function(v){return!v;});}}><Text style={{color:theme.gold, fontSize:12, borderWidth:1, borderColor:theme.gold, paddingHorizontal:8, paddingVertical:3, borderRadius:8}}>{locked?'已鎖定':'鎖定'}</Text></TouchableOpacity></View><Text style={[s.cardDesc,{color:theme.text}]}>{fly.desc} • 吉時 {daily.hour} 向{daily.caiDir}最旺</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>一鍵催財 • 查看佈局</Text></TouchableOpacity>) : (<View style={[s.unlockedBox,{backgroundColor:theme.inputBg}]}><Text style={[s.unlockedText,{color:theme.text, fontWeight:'bold'}]}>{fly.lay}</Text><Text style={[s.unlockedText,{color:theme.text2, marginTop:6}]}>今日穿 {daily.col}，幸運號 {daily.num}，{daily.hour} 向 {daily.caiDir} 傾生意最旺</Text><TouchableOpacity style={[s.goldBtn,{marginTop:12}]} onPress={onCuicai}><Text style={s.goldBtnText}>✨ 生成財神海報分享</Text></TouchableOpacity></View>)}</View>
+        <View style={[s.scoreCard,{backgroundColor:theme.card, borderColor:theme.gold}]}><Text style={[s.scoreCardT,{color:theme.text}]}>今日偏財指數 {daily.score}% • 坐{currentMountain.m}山 {currentMountain.cai}</Text><View style={{flexDirection:'row', marginTop:8}}><View style={[s.infoPill,{backgroundColor:theme.inputBg}]}><Text style={[s.infoPillT,{color:theme.text}]}>穿 {daily.col}</Text></View><View style={[s.infoPill,{backgroundColor:theme.inputBg, marginLeft:6}]}><Text style={[s.infoPillT,{color:theme.text}]}>幸運 {daily.num}</Text></View><View style={[s.infoPill,{backgroundColor:theme.inputBg, marginLeft:6}]}><Text style={[s.infoPillT,{color:theme.text}]}>{currentDir} {fly.star}</Text></View></View></View>        <View style={[s.card, {backgroundColor:theme.card, borderColor: fly.color}]}><Text style={[s.cardTitle, {color:fly.color}]}>{currentDir} {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{color:theme.text}]}>{fly.desc} • 吉時 {daily.hour} 向{daily.caiDir}最旺</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>一鍵催財 • 查看佈局</Text></TouchableOpacity>) : (<View style={[s.unlockedBox,{backgroundColor:theme.inputBg}]}><Text style={[s.unlockedText,{color:theme.text, fontWeight:'bold'}]}>{fly.lay}</Text><TouchableOpacity style={[s.goldBtn,{marginTop:10}]} onPress={function(){Vibration.vibrate(40); Share.share({message:"風水佬Go 今日財運"+daily.score+"% 財神"+daily.caiDir+" "+fly.lay});}}><Text style={s.goldBtnText}>✨ 分享財神海報</Text></TouchableOpacity></View>)}</View>
         <View style={[s.nativeBox,{backgroundColor:theme.card, borderColor:theme.border}]}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
       </ScrollView>
       <View style={[s.tabBar,{backgroundColor:theme.tab, borderColor:theme.border}]}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={[s.tabOnT,{color:theme.gold}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:theme.tabOff}]}>設定</Text></TouchableOpacity></View>
       <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
     </View>
   );
-}// 第5貼 主題 + Style 一定要貼最尾
+}
 const lightTheme={bg:'#F7F3E8', card:'#FFFFFF', text:'#1A1A1A', text2:'#6B6B6B', sub:'#8A6D2B', gold:'#B8960C', tab:'#FFFFFF', tabOn:'#FFF8DC', tabOff:'#999', border:'#E8E0C5', border2:'#D8D0B0', inputBg:'#F5F1E6', topBar:'#FFFFFF', compassOuter:'#FFF8E1', compassBg:'#FFFEF8', compassText:'#777'};
 const darkTheme={bg:'#080808', card:'#18181A', text:'#F0EAD6', text2:'#999', sub:'#D4AF37', gold:'#FFD700', tab:'#111', tabOn:'#1E1A00', tabOff:'#666', border:'#2A2410', border2:'#3A3520', inputBg:'#22201A', topBar:'#111', compassOuter:'#1A1600', compassBg:'#121212', compassText:'#666'};
 
 const s=StyleSheet.create({
   container:{flex:1, alignItems:'center'},
-  bigTitle:{fontWeight:'bold', textAlign:'center'}, bigSub:{fontSize:11, marginTop:4, textAlign:'center'},
+  bigTitle:{fontWeight:'bold', textAlign:'center', fontSize:22}, bigSub:{fontSize:11, marginTop:4, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:14, paddingBottom:10, borderBottomWidth:1},
   pill:{paddingHorizontal:10, paddingVertical:4, borderRadius:12}, pillT:{color:'#000', fontSize:11, fontWeight:'bold'},
-  luoPanWrap:{width:320,height:330, alignItems:'center', justifyContent:'center', marginTop:10},
-  luoPanOuter:{width:305,height:305, borderRadius:152, borderWidth:2.5, alignItems:'center', justifyContent:'center', elevation:8},
+  luoPanWrap:{width:320,height:340, alignItems:'center', justifyContent:'center', marginTop:10},
+  luoPanOuter:{width:305,height:305, borderRadius:152, borderWidth:2.5, alignItems:'center', justifyContent:'center', elevation:6},
   luoPan:{width:275,height:275, borderRadius:137, borderWidth:1, alignItems:'center', justifyContent:'center'},
   luoInner:{width:210,height:210, borderRadius:105, borderWidth:1, borderStyle:'dashed', alignItems:'center', justifyContent:'center'},
   mountainMark:{position:'absolute', top:'50%', left:'50%', width:28, marginLeft:-14, marginTop:-10, alignItems:'center'},
   mountainText:{fontSize:12},
-  tickLayer:{position:'absolute', width:'100%', height:'100%', alignItems:'center', justifyContent:'center'},
-  tick:{position:'absolute', top:'50%', left:'50%', width:2, marginLeft:-1, marginTop:-138, borderRadius:1},
   fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center', zIndex:10},
   needleTri:{width:0, height:0, borderLeftWidth:12, borderRightWidth:12, borderTopWidth:18, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF2D2D'},
   needleLine:{width:2, height:20, backgroundColor:'#FF2D2D', marginTop:-1},
   centerDot:{position:'absolute', width:58,height:58,borderRadius:29,alignItems:'center',justifyContent:'center', borderWidth:3, zIndex:5, elevation:5},
+  northBadge:{position:'absolute', bottom:-4, backgroundColor:'#111', paddingHorizontal:10, paddingVertical:4, borderRadius:10, borderWidth:1, borderColor:'#D4AF37'},
+  northBadgeT:{color:'#FFD700', fontSize:11, fontWeight:'bold'},
   scoreCard:{width:'92%', borderRadius:16, padding:14, marginTop:6, borderWidth:1.2},
-  scoreCardT:{fontSize:13, fontWeight:'bold'}, scoreCardSub:{fontSize:11, marginTop:3}, scoreCardNum:{fontSize:32, fontWeight:'bold', color:'#D4AF37'},
+  scoreCardT:{fontSize:13, fontWeight:'bold'},
   infoPill:{paddingHorizontal:10, paddingVertical:5, borderRadius:10}, infoPillT:{fontSize:11, fontWeight:'bold'},
   card:{width:'92%', borderRadius:16, padding:16, marginTop:10, borderWidth:1},
   cardTitle:{fontWeight:'bold', fontSize:16}, cardDesc:{marginTop:6, lineHeight:20, fontSize:13},
@@ -218,7 +202,6 @@ const s=StyleSheet.create({
   badge:{backgroundColor:'#D4AF37', paddingHorizontal:8, paddingVertical:2, borderRadius:8}, badgeT:{color:'#000', fontSize:10, fontWeight:'bold'},
   setCard:{width:'100%', borderRadius:14, padding:14, marginTop:12, borderWidth:1},
   setT:{fontSize:14, fontWeight:'bold'}, setD:{fontSize:12, marginTop:6, lineHeight:18},
-  miniBtn:{paddingHorizontal:14, paddingVertical:8, borderRadius:8}, miniBtnT:{color:'#000', fontWeight:'bold', fontSize:12},
   scoreBanner:{width:'100%', borderRadius:14, padding:16, marginTop:12, borderWidth:1.5, alignItems:'center'},
   scoreLabel:{fontSize:12, color:'#888'}, scoreNum:{fontSize:36, fontWeight:'bold', color:'#D4AF37', marginTop:4}, scoreSub:{fontSize:11, marginTop:4},
 });
