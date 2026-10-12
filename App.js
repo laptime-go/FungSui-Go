@@ -44,9 +44,9 @@ function calcBazi(dateStr){
     var map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
     var five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; five[map[dayStem]]++;
     var weak=Object.entries(five).sort(function(a,b){return a[1]-b[1];})[0][0];
-    var lucky={木:{el:"火",dir:"正南",col:"紅紫色",num:"2,7"},火:{el:"土",dir:"西南",col:"黃色",num:"5,0"},土:{el:"金",dir:"正西",col:"白金色",num:"4,9"},金:{el:"水",dir:"正北",col:"黑藍色",num:"1,6"},水:{el:"木",dir:"正東",col:"綠色",num:"3,8"}};
+    var lucky={木:{el:"火",dir:"正南",col:"紅紫色"},火:{el:"土",dir:"西南",col:"黃色"},土:{el:"金",dir:"正西",col:"白金色"},金:{el:"水",dir:"正北",col:"黑藍色"},水:{el:"木",dir:"正東",col:"綠色"}};
     var lk=lucky[weak];
-    return {full:y+"年 "+yearStem+"命 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col, num:lk.num};
+    return {full:y+"年 "+yearStem+"命 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col};
   }catch(err){ return null; }
 }
 function getDaily(){
@@ -77,7 +77,6 @@ export default function App(){
     (async function(){
       try{
         var ok=true; try{ ok=await Magnetometer.isAvailableAsync(); }catch(e2){ ok=true; }
-        setMagDebug(ok?'感應器正常 '+daily.date+'財神'+daily.caiDir:'此設備無磁感應器');
         try{ await Magnetometer.setUpdateIntervalAsync(100); }catch(e){ await Magnetometer.setUpdateInterval(100); }
         try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ await Accelerometer.setUpdateInterval(200); }
         aSub=Accelerometer.addListener(function(){});
@@ -85,8 +84,10 @@ export default function App(){
           if(first){ magF.current={x:d.x,y:d.y,z:d.z}; first=false; }
           else { magF.current.x=magF.current.x*0.5+d.x*0.5; magF.current.y=magF.current.y*0.5+d.y*0.5; }
           var x=magF.current.x; var y=magF.current.y;
-          setMagDebug("x:"+x.toFixed(0)+" y:"+y.toFixed(0)+" 強度:"+Math.hypot(x,y).toFixed(0)+" 今日財神"+daily.caiDir);
-          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360; angle=(360-angle)%360;
+          setMagDebug("今日財神"+daily.caiDir+" 喜神"+daily.xiDir+" 強度"+Math.hypot(x,y).toFixed(0));
+          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360;
+          // 已修正：之前 (360-angle) 會反 180度，依家用 (angle+180) 電話頂部=北
+          angle=(angle+180)%360;
           var diff=angle-lastRaw.current; if(diff>180) diff-=360; if(diff<-180) diff+=360;
           lastRaw.current=(lastRaw.current+diff*0.4+360)%360;
           setHeading(lastRaw.current);
@@ -107,9 +108,9 @@ export default function App(){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:45,paddingBottom:130}}>
-          <Text style={s.title}>財位總覽 每日變</Text><Text style={s.sub}>今日{daily.date}財神{daily.caiDir}喜神{daily.xiDir} • {magDebug}</Text>
-          {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.setCard,{borderColor:v.color, borderWidth:isToday?2:1}]}><View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={[s.setT,{color:v.color}]}>{k} {v.name} 財力{v.cai}% {v.star} {isToday?'★今日財神':''}</Text></View><Text style={s.setD}>{v.desc}{'\n'}佈局: {v.lay}</Text></View>); })}
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
+          <Text style={s.bigTitle}>財位總覽 每日變</Text><Text style={s.bigSub}>今日{daily.date} 財神在 {daily.caiDir} 喜神在 {daily.xiDir} 穿{daily.col}</Text>
+          {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard, isToday && s.fCardToday, {borderColor:v.color}]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} 財力{v.cai}% {v.star} {isToday?'★今日財神':''}</Text><Text style={s.fD}>{v.desc}</Text><Text style={s.fL}>佈局: {v.lay}</Text></View>); })}
         </ScrollView>
         <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
         <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
@@ -119,10 +120,10 @@ export default function App(){
   if(tab==='settings'){
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:45,paddingBottom:130}}>
-          <Text style={s.title}>設定 今日財神{daily.caiDir}</Text><Text style={s.sub}>{magDebug} • {Math.round(smooth)}°</Text>
-          <View style={s.setCard}><Text style={s.setT}>羅盤 ✓ {Math.round(smooth)}° 正常</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua} {currentMountain.wu}行 • {currentMountain.deg}°{'\n'}今日財神 {daily.caiDir} 喜神 {daily.xiDir} 穿 {daily.col} 色{'\n'}{magDebug}</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','1.遠離電腦喇叭 2.平放 3.畫8字');}}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity></View>
-          <View style={s.setCard}><Text style={s.setT}>資料</Text><Text style={s.setD}>{baziInput||'未設定'}</Text><TouchableOpacity style={s.darkBtn} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity></View>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:25,paddingBottom:160}}>
+          <Text style={s.bigTitle}>設定</Text><Text style={s.bigSub}>{magDebug} {Math.round(smooth)}° 今日財神{daily.caiDir}</Text>
+          <View style={s.setCard}><Text style={s.setT}>羅盤 ✓ {Math.round(smooth)}°</Text><Text style={s.setD}>當前 {currentMountain.m}山 {currentMountain.gua} {currentMountain.wu}行 • {currentMountain.deg}°{'\n'}今日財神 {daily.caiDir} 喜神 {daily.xiDir} 幸運色 {daily.col}</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','1.遠離電腦喇叭 2.平放 3.畫8字');}}><Text style={s.goldBtnText}>校準教學</Text></TouchableOpacity></View>
+          <View style={s.setCard}><Text style={s.setT}>資料儲存</Text><Text style={s.setD}>{baziInput||'未設定'}</Text><TouchableOpacity style={s.darkBtn} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity></View>
         </ScrollView>
         <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
         <View style={s.bottomAd}>{adsReady && <BannerAd unitId={IDS.banner} size={BannerAdSize.BANNER} />}</View>
@@ -132,8 +133,8 @@ export default function App(){
   if(tab==='bazi'){
     return (
       <View style={s.container}>
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:40,paddingBottom:130}}>
-          <Text style={s.title}>八字參考</Text><Text style={s.sub}>今日財神{daily.caiDir} 配對 • {magDebug}</Text>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:160}}>
+          <Text style={s.bigTitle}>八字參考</Text><Text style={s.bigSub}>喜用神配今日財神{daily.caiDir} • {magDebug}</Text>
           <View style={[s.card,{width:'92%'}]}><TextInput style={s.input} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={s.unlockedBox}><Text style={s.unlockedText}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col+" 今日財神"+daily.caiDir+(baziRes.dir===daily.caiDir?" ★超級財日":""))}</Text></View>}</View>
           <View style={s.nativeBox}>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
         </ScrollView>
@@ -144,10 +145,10 @@ export default function App(){
   }
   return (
     <View style={s.container}>
-      <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:140, paddingTop:35}}>
-        <Text style={s.title}>風水佬Go {Math.round(smooth)}°</Text><Text style={s.sub}>{magDebug} • {currentDir} {fly.star}{fly.name} • {currentMountain.m}山 • 今日財神{daily.caiDir}</Text>
-        <View style={s.luoPanWrap}><View style={[s.luoPan, {transform:[{rotate:""+(-smooth)+"deg"}]}]}><View style={s.luoInner}>{MOUNTAINS_24.map(function(m,i){ var active=currentMountain && currentMountain.m===m; return (<View key={m} style={[s.mountainMark, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-110}]}]}><Text style={[s.mountainText, active && s.mountainActive]}>{m}</Text></View>); })}<View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:12}}>{currentMountain.m}</Text></View></View><Text style={s.northMark}>北 {Math.round(smooth)}°</Text></View><View style={s.fixedNeedle}><Text style={{color:'red',fontSize:20}}>▼</Text></View></View>
-        <View style={[s.card, {borderColor: fly.color}]}><Text style={[s.cardTitle, {color:fly.color}]}>{currentDir} - {fly.star} {fly.name} 財力{fly.cai}% 今日財神{daily.caiDir}</Text><Text style={s.cardDesc}>{fly.desc}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>查看詳細說明</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay} • 坐{currentMountain.m}山 • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}</Text><View style={{flexDirection:'row', marginTop:8}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享今日財神</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:8}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
+      <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:170, paddingTop:10}}>
+        <View style={s.topBar}><Text style={s.bigTitle}>風水佬Go {Math.round(smooth)}°</Text><Text style={s.bigSub}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
+        <View style={s.luoPanWrap}><View style={[s.luoPan, {transform:[{rotate:""+(-smooth)+"deg"}]}]}><View style={s.luoInner}>{MOUNTAINS_24.map(function(m,i){ var active=currentMountain && currentMountain.m===m; return (<View key={m} style={[s.mountainMark, {transform:[{rotate:""+(i*15)+"deg"}, {translateY:-118}]}]}><Text style={[s.mountainText, active && s.mountainActive]}>{m}</Text></View>); })}<View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:14}}>{currentMountain.m}</Text></View></View><Text style={s.northMark}>北</Text></View><View style={s.fixedNeedle}><Text style={{color:'#FF3B30',fontSize:22}}>▼</Text></View></View>
+        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} 財力{fly.cai}%</Text><Text style={[s.cardDesc,{fontSize:15}]}>{fly.desc} 今日財神{daily.caiDir}穿{daily.col}</Text><Text style={s.mountainDetail}>坐{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showInter(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>查看詳細佈局</Text></TouchableOpacity>) : (<View style={s.unlockedBox}><Text style={s.unlockedText}>{fly.lay} • 今日財神{daily.caiDir} 喜神{daily.xiDir} 穿{daily.col}色</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" 今日財神"+daily.caiDir});}}><Text style={s.smallBtnT}>分享財位</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
         <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容</Text>{adsReady && <BannerAd unitId={IDS.native} size={BannerAdSize.MEDIUM_RECTANGLE} />}</View>
       </ScrollView>
       <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
@@ -156,26 +157,29 @@ export default function App(){
   );
 }
 const s=StyleSheet.create({
-  container:{flex:1, backgroundColor:'#0f0f0f', alignItems:'center'},
-  title:{color:'#d4af37', fontSize:22, fontWeight:'bold'}, sub:{color:'#888', fontSize:11, marginTop:4},
-  luoPanWrap:{width:300,height:300, alignItems:'center', justifyContent:'center', marginTop:20},
-  luoPan:{width:280,height:280, borderRadius:140, borderWidth:3, borderColor:'#d4af37', backgroundColor:'#1a1a1a', alignItems:'center', justifyContent:'center'},
-  luoInner:{width:220,height:220, borderRadius:110, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
-  mountainMark:{position:'absolute', top:'50%', left:'50%', width:20, marginLeft:-10, marginTop:-10, alignItems:'center'},
-  mountainText:{color:'#888', fontSize:11}, mountainActive:{color:'#000', fontWeight:'bold', fontSize:13, backgroundColor:'#d4af37', borderRadius:4, paddingHorizontal:3},
-  centerDot:{width:40,height:40,borderRadius:20,backgroundColor:'#d4af37',alignItems:'center',justifyContent:'center'},
-  northMark:{position:'absolute', top:-24, color:'#fff', fontSize:11}, fixedNeedle:{position:'absolute', top:0},
-  card:{width:'92%', backgroundColor:'#1e1e1e', borderRadius:12, padding:14, marginTop:16, borderWidth:1, borderColor:'#333'},
-  cardTitle:{fontSize:16, fontWeight:'bold'}, cardDesc:{color:'#ccc', fontSize:13, marginTop:6}, mountainDetail:{color:'#888', fontSize:11, marginTop:6},
-  goldBtn:{backgroundColor:'#d4af37', padding:12, borderRadius:10, marginTop:12, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold'},
-  smallBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#d4af37', padding:8, borderRadius:8}, smallBtnT:{color:'#d4af37', fontSize:11},
-  unlockedBox:{backgroundColor:'#2a2a2a', padding:10, borderRadius:8, marginTop:10}, unlockedText:{color:'#ddd', fontSize:13, marginTop:4},
-  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:12, padding:8, marginTop:16, alignItems:'center', minHeight:270, borderWidth:1, borderColor:'#333'},
-  adLabel:{color:'#666', fontSize:10, marginBottom:4}, input:{backgroundColor:'#222', color:'#fff', padding:12, borderRadius:8, borderWidth:1, borderColor:'#333', marginTop:10},
-  bottomAd:{position:'absolute', bottom:0, width:'100%', alignItems:'center', backgroundColor:'#000', height:52},
-  tabBar:{position:'absolute', bottom:52, flexDirection:'row', width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', height:50},
-  tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e'}, tabOnT:{color:'#d4af37', fontWeight:'bold'}, tabOff:{color:'#666'},
-  setCard:{width:'100%', backgroundColor:'#161616', borderRadius:12, padding:14, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'},
-  setT:{color:'#fff', fontSize:14, fontWeight:'bold'}, setD:{color:'#888', fontSize:12, marginTop:6, lineHeight:18},
-  darkBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#d4af37', padding:12, borderRadius:10, marginTop:10, alignItems:'center'}, darkBtnText:{color:'#d4af37', fontWeight:'bold'},
+  container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
+  bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
+  topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
+  luoPanWrap:{width:320,height:320, alignItems:'center', justifyContent:'center', marginTop:18},
+  luoPan:{width:300,height:300, borderRadius:150, borderWidth:3, borderColor:'#D4AF37', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
+  luoInner:{width:240,height:240, borderRadius:120, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
+  mountainMark:{position:'absolute', top:'50%', left:'50%', width:24, marginLeft:-12, marginTop:-12, alignItems:'center'},
+  mountainText:{color:'#888', fontSize:13}, mountainActive:{color:'#000', fontWeight:'bold', fontSize:15, backgroundColor:'#D4AF37', borderRadius:6, paddingHorizontal:5, paddingVertical:1},
+  centerDot:{width:52,height:52,borderRadius:26,backgroundColor:'#D4AF37',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
+  northMark:{position:'absolute', top:10, color:'#FF3B30', fontSize:12, fontWeight:'bold'}, fixedNeedle:{position:'absolute', top:0},
+  card:{width:'92%', backgroundColor:'#1c1c1e', borderRadius:16, padding:18, marginTop:18, borderWidth:1, borderColor:'#333'},
+  cardTitle:{fontWeight:'bold'}, cardDesc:{color:'#ddd', marginTop:8, lineHeight:22}, mountainDetail:{color:'#888', fontSize:12, marginTop:8},
+  goldBtn:{backgroundColor:'#D4AF37', padding:14, borderRadius:12, marginTop:14, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold', fontSize:15},
+  smallBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:10, borderRadius:10}, smallBtnT:{color:'#D4AF37', fontSize:13, fontWeight:'bold'},
+  unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
+  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:10, marginTop:18, alignItems:'center', minHeight:280, borderWidth:1, borderColor:'#222'},
+  adLabel:{color:'#666', fontSize:10, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
+  bottomAd:{position:'absolute', bottom:0, width:'100%', alignItems:'center', backgroundColor:'#000', height:54, borderTopWidth:1, borderColor:'#222'},
+  tabBar:{position:'absolute', bottom:54, flexDirection:'row', width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', height:56},
+  tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
+  fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
+  fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
+  setCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:14, borderWidth:1, borderColor:'#2a2a2a'},
+  setT:{color:'#fff', fontSize:15, fontWeight:'bold'}, setD:{color:'#999', fontSize:13, marginTop:8, lineHeight:20},
+  darkBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:13, borderRadius:11, marginTop:12, alignItems:'center'}, darkBtnText:{color:'#D4AF37', fontWeight:'bold', fontSize:14},
 });
