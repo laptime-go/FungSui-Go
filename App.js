@@ -219,7 +219,7 @@ function NativeBox({ready}){
       </View>
     </View>
   );
-  }const s=StyleSheet.create({
+    }const s=StyleSheet.create({
   container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
@@ -243,7 +243,8 @@ function NativeBox({ready}){
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
   nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:16, marginTop:18, minHeight:180, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
   adLabel:{color:'#666', fontSize:11, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
-  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', zIndex:20, elevation:20},
+  // 電話功能鍵修復重點
+  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', zIndex:99, elevation:99},
   tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
   bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:84, paddingBottom:24, justifyContent:'center'},
   tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
