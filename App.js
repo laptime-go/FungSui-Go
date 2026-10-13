@@ -112,6 +112,7 @@ function TopBanner({ready}){
   var interRef=useRef(null); var rewardRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
   var th = isDark? THEME.dark : THEME.light;
+  var statusH = Platform.OS==='android'? ((StatusBar.currentHeight||24)+6) : 44;
   useEffect(function(){
     var mSub=null; var aSub=null; var first=true;
     (async function(){
@@ -195,7 +196,7 @@ function TopBanner({ready}){
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
-        <View style={{height: (StatusBar.currentHeight||24), backgroundColor:th.top, width:'100%'}} />
+        <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>財位總覽</Text><Text style={[s.bigSub,{color:th.sub}]}>{daily.date} 財神 {daily.caiDir} 喜神 {daily.xiDir}</Text>
@@ -209,7 +210,7 @@ function TopBanner({ready}){
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
-        <View style={{height: (StatusBar.currentHeight||24), backgroundColor:th.top, width:'100%'}} />
+        <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.0 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
@@ -224,7 +225,7 @@ function TopBanner({ready}){
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
-        <View style={{height: (StatusBar.currentHeight||24), backgroundColor:th.top, width:'100%'}} />
+        <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:10,paddingBottom:130}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神{daily.caiDir}</Text>
@@ -248,7 +249,7 @@ function TopBanner({ready}){
   return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
-      <View style={{height: (StatusBar.currentHeight||24), backgroundColor:th.top, width:'100%'}} />
+      <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
       <TopBanner ready={adsReady} />
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:130, paddingTop:4}}>
         <View style={[s.topBar,{backgroundColor:th.top,borderColor:th.border}]}><Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>風水佬Go {Math.round(smooth)}°</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
