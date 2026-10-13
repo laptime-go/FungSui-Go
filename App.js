@@ -4,7 +4,7 @@ import { Magnetometer, Accelerometer } from 'expo-sensors';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
-const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
+const NATIVE_ID = "ca-app-pub-3940256099942544/2247696110";
 const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
 const REWARD_ID = "ca-app-pub-9890149028563226/6307389980";
 const OPEN_ID = "ca-app-pub-9890149028563226/1285440667";
@@ -63,7 +63,8 @@ function getMountainByDeg(deg){
     else { if(deg>=info.low && deg<info.high) return info; }
   }
   return MOUNTAINS_INFO[1];
-}function NativeBox({ready,isDark}){
+}
+function NativeBox({ready,isDark}){
   var _n1=useState(null); var ad=_n1[0]; var setAd=_n1[1];
   var _n2=useState(false); var fail=_n2[0]; var setFail=_n2[1];
   var th = isDark? THEME.dark : THEME.light;
@@ -154,8 +155,7 @@ function TopBanner({ready}){
     }catch(err){}
   },1000); },[]);
   var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
-  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
-  var showReward=function(cb){
+  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];  var showReward=function(cb){
     if(rewardRef.current==null){ Alert.alert("提示","廣告準備中"); return; }
     try{
       try{ rewardRef.current.removeAllListeners(); }catch(e){}
@@ -175,21 +175,19 @@ function TopBanner({ready}){
     if(interRef.current==null ||!interReady){ Alert.alert("提示","廣告準備中，請稍後再試"); return; }
     try{
       try{ interRef.current.removeAllListeners(); }catch(e){}
-      var hasShown=false;
-      var i1=interRef.current.addAdEventListener(AdEventType.OPENED,function(){ hasShown=true; });
-      var i2=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){
-        try{ i1(); i2(); i3(); }catch(e){}
+      var i1=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){
+        try{ i1(); i2(); }catch(e){}
         setLastInter(Date.now());
         try{ interRef.current.load(); }catch(e){}
-        if(hasShown && typeof cb==='function') cb();
+        if(typeof cb==='function') cb();
       });
-      var i3=interRef.current.addAdEventListener(AdEventType.ERROR,function(){
-        try{ i1(); i2(); i3(); }catch(e){}
+      var i2=interRef.current.addAdEventListener(AdEventType.ERROR,function(){
+        try{ i1(); i2(); }catch(e){}
         try{ interRef.current.load(); }catch(e){}
-        Alert.alert("提示","廣告載入失敗");
+        if(typeof cb==='function') cb();
       });
-      interRef.current.show().catch(function(){ try{ i1(); i2(); i3(); }catch(e){} Alert.alert("提示","廣告顯示失敗"); });
-    }catch(err){ Alert.alert("提示","廣告錯誤"); }
+      interRef.current.show().catch(function(){ try{ i1(); i2(); }catch(e){} if(typeof cb==='function') cb(); });
+    }catch(err){ if(typeof cb==='function') cb(); }
   };
   var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
