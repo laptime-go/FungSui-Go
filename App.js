@@ -53,19 +53,27 @@ function getDaily(){
 }
 function NativeBox({ready}){
   var _n1=useState(null); var ad=_n1[0]; var setAd=_n1[1];
+  var _n2=useState(false); var fail=_n2[0]; var setFail=_n2[1];
   useEffect(function(){
     if(!ready) return;
     try{
       var n=NativeAd.createForAdRequest(NATIVE_ID);
-      n.load();
       n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); });
-    }catch(e){}
+      n.addAdEventListener(NativeAdEventType.ERROR,function(){ setFail(true); });
+      n.load();
+    }catch(e){ setFail(true); }
   },[ready]);
-  if(!ad) return <View style={s.nativeBox}><Text style={s.adLabel}>載入中</Text></View>;
+  if(fail){
+    return <View style={s.nativeBox}><BannerAd unitId={BANNER_ID} size={BannerAdSize.MEDIUM_RECTANGLE} /></View>;
+  }
+  if(!ad) return <View style={s.nativeBox}><Text style={s.adLabel}>推薦內容準備中</Text><View style={{marginTop:10, backgroundColor:'#222', width:'100%', height:110, borderRadius:8}} /></View>;
   return (
     <View style={s.nativeBox}>
-      <Text style={{color:'#FFD700', fontWeight:'bold'}}>{ad.headline||''}</Text>
-      <Text style={{color:'#aaa', fontSize:12, marginTop:4}}>{ad.body||''}</Text>
+      <Text style={{color:'#FFD700', fontWeight:'bold', fontSize:16}}>{ad.headline||'推薦'}</Text>
+      <Text style={{color:'#aaa', fontSize:13, marginTop:6, lineHeight:18}}>{ad.body||''}</Text>
+      <View style={{marginTop:10, backgroundColor:'#D4AF37', paddingHorizontal:16, paddingVertical:6, borderRadius:6}}>
+        <Text style={{color:'#000', fontWeight:'bold', fontSize:12}}>查看</Text>
+      </View>
     </View>
   );
 }
@@ -120,7 +128,7 @@ export default function App(){
       reward.addAdEventListener(AdEventType.CLOSED,function(){ reward.load(); });
       const appOpenAd = AppOpenAd.createForAdRequest(OPEN_ID);
       appOpenRef.current=appOpenAd;
-      appOpenAd.addAdEventListener(AdEventType.LOADED,function(){ setTimeout(function(){ try{ appOpenAd.show(); }catch(e){} },2000); });
+      appOpenAd.addAdEventListener(AdEventType.LOADED,function(){ setTimeout(function(){ try{ appOpenAd.show(); }catch(e){} },800); });
       appOpenAd.load();
     }catch(err){}
   },1000); },[]);
@@ -211,7 +219,7 @@ export default function App(){
       </View>
     </View>
   );
-    }const s=StyleSheet.create({
+}const s=StyleSheet.create({
   container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
@@ -233,11 +241,11 @@ export default function App(){
   goldBtn:{backgroundColor:'#D4AF37', padding:14, borderRadius:12, marginTop:14, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold', fontSize:15},
   smallBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:10, borderRadius:10}, smallBtnT:{color:'#D4AF37', fontSize:13, fontWeight:'bold'},
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
-  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:14, marginTop:18, alignItems:'center', minHeight:100, borderWidth:1, borderColor:'#222'},
-  adLabel:{color:'#666', fontSize:10, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
+  nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:16, marginTop:18, minHeight:180, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
+  adLabel:{color:'#666', fontSize:11, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
   bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222'},
   tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
-  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:54},
+  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:52},
   tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
   fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
   fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
