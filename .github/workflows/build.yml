@@ -1,4 +1,4 @@
-name: Build FungSui-Go v25 API36 FINAL
+name: Build FungSui-Go v25 API36 FIXED
 on: workflow_dispatch
 jobs:
   build:
@@ -14,22 +14,21 @@ jobs:
         run: npm install
       - name: Expo prebuild true 36
         run: npx expo prebuild --clean --platform android
-      - name: Force kotlin 2.0.21 + clean 34
+      - name: FIX kotlin 1.9.22 -> 2.0.21 for API36
         run: |
-          python3 - << 'PY'
-          import pathlib, re, json
-          for p in pathlib.Path("android").rglob("*.gradle"):
-              t=p.read_text()
-              t=re.sub(r'kotlinVersion\s*=\s*["\']?[\d\.]+["\']?', 'kotlinVersion = "2.0.21"', t)
-              t=t.replace('1.9.22','2.0.21')
-              t=re.sub(r'compileSdkVersion\s*=\s*34','compileSdkVersion = 36',t)
-              t=re.sub(r'targetSdkVersion\s*=\s*34','targetSdkVersion = 36',t)
-              p.write_text(t)
-          bg=pathlib.Path("android/build.gradle").read_text()
-          bg=re.sub(r'id\s+["\']org.jetbrains.kotlin.android["\']\s+version\s+["\'][\d\.]+["\']', 'id "org.jetbrains.kotlin.android" version "2.0.21"', bg)
-          pathlib.Path("android/build.gradle").write_text(bg)
-          print("patched kotlin to 2.0.21 and SDK to 36")
-          PY
+          echo "=== patch all gradle ==="
+          find android -type f -name "*.gradle" -o -name "gradle.properties" | xargs sed -i 's/1\.9\.22/2.0.21/g'
+          find android -type f -name "*.gradle" | xargs sed -i 's/compileSdkVersion = 34/compileSdkVersion = 36/g; s/targetSdkVersion = 34/targetSdkVersion = 36/g; s/compileSdkVersion 34/compileSdkVersion 36/g; s/targetSdkVersion 34/targetSdkVersion 36/g'
+          # 確保 build.gradle 的 kotlin 插件版本
+          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "2.0.21"/' android/build.gradle
+          # 強制 settings.gradle 嘅 pluginManagement
+          if [ -f android/settings.gradle ]; then
+            sed -i 's/id("org.jetbrains.kotlin.android") version ".*"/id("org.jetbrains.kotlin.android") version "2.0.21"/' android/settings.gradle
+          fi
+          # 加上兼容參數
+          echo "kotlin.mpp.androidSourceSetLayoutVersion=2" >> android/gradle.properties
+          echo "=== verify ==="
+          grep -r "kotlinVersion\|kotlin.android" android/build.gradle | head -20
       - name: Use Permanent Keystore
         run: |
           mkdir -p android/app
@@ -50,13 +49,13 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lint
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lint --stacktrace
       - name: Upload AAB+APK to Release
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v25-api36-${{ github.run_number }}
-          name: fungsui Go v25 API36 FINAL #${{ github.run_number }}
+          tag_name: fungsui-v25-api36-fixed-${{ github.run_number }}
+          name: fungsui Go v25 API36 FIXED #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
