@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.laptimego.fungsui",
-      "versionCode": 24,
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./icon.jpg",
         "backgroundColor": "#0f0f0f"
@@ -33,9 +33,10 @@
     "extra": {
       "adUnitIds": {
         "banner": "ca-app-pub-9890149028563226/7565306387",
+        "native": "ca-app-pub-9890149028563226/9108090368",
         "inter": "ca-app-pub-9890149028563226/5859110495",
-        "appopen": "ca-app-pub-9890149028563226/1285440667",
-        "native": "ca-app-pub-9890149028563226/9108090368"
+        "reward": "ca-app-pub-9890149028563226/6307389980",
+        "appopen": "ca-app-pub-9890149028563226/1285440667"
       }
     }
   }
