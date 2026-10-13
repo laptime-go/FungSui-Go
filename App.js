@@ -167,9 +167,7 @@ function TopBanner({ready}){
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>財位總覽</Text><Text style={[s.bigSub,{color:th.sub}]}>{daily.date} 財神 {daily.caiDir} 喜神 {daily.xiDir}</Text>
           {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard,{backgroundColor:th.card2,borderColor:isToday?v.color:th.border}, isToday && s.fCardToday]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} {v.star} {isToday?'★':''}</Text><Text style={[s.fD,{color:isDark?'#aaa':'#555'}]}>{v.desc}</Text><Text style={s.fL}>{v.lay}</Text></View>); })}
         </ScrollView>
-        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}>
-          <View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        </View>
+        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
   }
@@ -184,9 +182,7 @@ function TopBanner({ready}){
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離磁性物品，平放畫8字');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity></View>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>儲存</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{baziInput||'未設定'}</Text><TouchableOpacity style={s.darkBtn} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity></View>
         </ScrollView>
-        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}>
-          <View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
-        </View>
+        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
   }
@@ -200,9 +196,7 @@ function TopBanner({ready}){
           <View style={[s.card,{width:'92%',backgroundColor:th.card,borderColor:th.border}]}><TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(function(){}); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}</View>
           <NativeBox ready={adsReady} isDark={isDark} />
         </ScrollView>
-        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}>
-          <View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        </View>
+        <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
   }
@@ -214,14 +208,15 @@ function TopBanner({ready}){
         <View style={[s.topBar,{backgroundColor:th.top,borderColor:th.border}]}><Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>風水佬Go {Math.round(smooth)}°</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
         <View style={s.luoPanWrap}>
           <View style={s.luoPanOuter}>
-            <View style={s.luoPan}>
+            <View style={[s.luoPan, {transform:[{rotate:-smooth+"deg"}]}]}>
               <View style={s.luoInner}>
                 {MOUNTAINS_INFO.map(function(info,i){
                   var angle = i*15;
+                  var upright = -angle + smooth;
                   var isActive = currentMountain && currentMountain.m===info.m;
                   return (
                     <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-110}]}]}>
-                      <View style={[s.markUpright, {transform:[{rotate:-angle+"deg"}]}]}>
+                      <View style={[s.markUpright, {transform:[{rotate:upright+"deg"}]}]}>
                         <View style={[s.mountainDot, {backgroundColor:info.col}, isActive && s.mountainDotActive]} />
                         <Text style={[s.mountainTextUpright, {color: isActive? '#000' : info.col}, isActive && s.mountainActive]}>{info.m}</Text>
                       </View>
@@ -229,7 +224,6 @@ function TopBanner({ready}){
                   );
                 })}
                 <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:14}}>{currentMountain.m}</Text></View>
-                <View style={[s.compassNeedle, {transform:[{rotate:smooth+"deg"}]}]}><View style={s.needleLineLong}/></View>
               </View>
             </View>
           </View>
@@ -239,9 +233,7 @@ function TopBanner({ready}){
         <View style={[s.card, {borderColor: fly.color, borderWidth:1.5, backgroundColor:th.card}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name}</Text><Text style={[s.cardDesc,{fontSize:15,color:isDark?'#ddd':'#444'}]}>{fly.desc}</Text><Text style={[s.mountainDetail,{color:isDark?'#888':'#666'}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showReward(function(){setUnlockedCai(true);});}}><Text style={s.goldBtnText}>看廣告解鎖佈局</Text></TouchableOpacity>) : (<View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{fly.lay} 今日財神{daily.caiDir} 喜神{daily.xiDir}</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay});}}><Text style={s.smallBtnT}>分享</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
         <NativeBox ready={adsReady} isDark={isDark} />
       </ScrollView>
-      <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}>
-        <View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-      </View>
+      <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View></View>
     </View>
   );
 }
@@ -260,7 +252,6 @@ const s=StyleSheet.create({
   mountainTextUpright:{fontSize:15, fontWeight:'bold', textAlign:'center', lineHeight:16},
   mountainActive:{color:'#000', fontWeight:'bold', fontSize:15, backgroundColor:'#FFD700', borderRadius:6, paddingHorizontal:5, paddingVertical:1},
   centerDot:{width:52,height:52,borderRadius:26,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
-  compassNeedle:{position:'absolute', width:2, height:220, alignItems:'center'}, needleLineLong:{width:2, height:90, backgroundColor:'#FF3B30', opacity:0.9},
   fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center'},
   needleTri:{width:0, height:0, borderLeftWidth:10, borderRightWidth:10, borderTopWidth:16, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
   needleLine:{width:2, height:18, backgroundColor:'#FF3B30', marginTop:-2},
@@ -273,9 +264,9 @@ const s=StyleSheet.create({
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
   nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:16, marginTop:18, minHeight:180, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
   adLabel:{color:'#666', fontSize:11, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
-  bottomWrapperSafe:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', zIndex:99, elevation:99, paddingBottom: Platform.OS==='android'? 26 : 0},
-  tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
-  tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#ccc', fontSize:13},
+  bottomWrapperSafe:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#D4AF37', zIndex:99, elevation:99, paddingBottom: Platform.OS==='android'? 38 : 0},
+  tabBar:{flexDirection:'row', width:'100%', height:62, backgroundColor:'#111'},
+  tab:{flex:1, alignItems:'center', justifyContent:'center', paddingBottom:6}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#FFD700', fontWeight:'bold', fontSize:13}, tabOff:{color:'#eee', fontSize:13},
   fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
   fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
   setCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:14, borderWidth:1, borderColor:'#2a2a2a'},
