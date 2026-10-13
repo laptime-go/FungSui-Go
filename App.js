@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, StatusBar, Platform } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
-const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
+const NATIVE_ID = __DEV__? TestIds.NATIVE : "ca-app-pub-9890149028563226/9108090368";
 const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
 const REWARD_ID = "ca-app-pub-9890149028563226/6307389980";
 const OPEN_ID = "ca-app-pub-9890149028563226/1285440667";
@@ -65,43 +65,43 @@ function getMountainByDeg(deg){
   return MOUNTAINS_INFO[1];
 }
 function NativeBox({ready,isDark}){
-  var _n1=useState(null); var ad=_n1[0]; var setAd=_n1[1];
-  var th = isDark? THEME.dark : THEME.light;
-  useEffect(function(){
+  const [nativeAd,setNativeAd] = useState(null);
+  const th = isDark? THEME.dark : THEME.light;
+  useEffect(()=>{
     if(!ready) return;
-    try{
-      var n=NativeAd.createForAdRequest(NATIVE_ID, {requestNonPersonalizedAdsOnly: false});
-      n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); });
-      n.addAdEventListener(NativeAdEventType.ERROR,function(){});
-      n.load();
-    }catch(e){}
+    let curAd = null;
+    (async ()=>{
+      try{
+        curAd = await NativeAd.createForAdRequest(NATIVE_ID);
+        curAd.addAdEventListener(NativeAdEventType.LOADED, (ad)=> setNativeAd(ad));
+        curAd.addAdEventListener(NativeAdEventType.ERROR, (e)=> console.log('native error', e));
+        await curAd.load();
+      }catch(e){ console.log(e); }
+    })();
+    return ()=>{ try{ if(curAd) curAd.destroy(); }catch(e){} };
   },[ready]);
-  if(!ad) return null;
+  if(!nativeAd) return null;
   return (
-    <NativeAdView nativeAd={ad} style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
-      <View style={{flexDirection:'row', alignItems:'center', width:'100%'}}>
-        <NativeAsset assetType={NativeAssetType.ICON}><View style={{width:40,height:40,borderRadius:8,backgroundColor:'#333'}} /></NativeAsset>
+    <NativeAdView nativeAd={nativeAd} style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
+      <View style={{flexDirection:'row', width:'100%', alignItems:'center'}}>
+        <NativeAsset assetType={NativeAssetType.ICON}><View style={{width:40,height:40,borderRadius:8,overflow:'hidden',backgroundColor:'#222'}}><NativeMediaView style={{width:40,height:40}} /></View></NativeAsset>
         <View style={{marginLeft:10, flex:1}}>
-          <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:15}}>{ad.headline}</Text></NativeAsset>
-          <NativeAsset assetType={NativeAssetType.ADVERTISER}><Text style={{color:th.tabOff, fontSize:11, marginTop:2}}>{ad.advertiser}</Text></NativeAsset>
+          <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{color:isDark?'#FFD700':'#8a6d00',fontWeight:'bold',fontSize:15}}>{nativeAd.headline}</Text></NativeAsset>
+          <NativeAsset assetType={NativeAssetType.ADVERTISER}><Text style={{color:th.tabOff,fontSize:11,marginTop:2}}>{nativeAd.advertiser}</Text></NativeAsset>
         </View>
       </View>
-      <NativeAsset assetType={NativeAssetType.BODY}><Text style={{color: th.tabOff, fontSize:13, marginTop:8, lineHeight:18}}>{ad.body}</Text></NativeAsset>
-      <NativeMediaView style={{width:'100%', height:160, marginTop:10, backgroundColor:'#000', borderRadius:8}} />
-      <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:10, width:'100%'}}>
-        <NativeAsset assetType={NativeAssetType.STAR_RATING}><Text style={{color:'#D4AF37', fontSize:12}}>★ {ad.starRating||'5.0'}</Text></NativeAsset>
-        <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{backgroundColor:'#D4AF37', paddingHorizontal:18, paddingVertical:7, borderRadius:8}}><Text style={{color:'#000', fontWeight:'bold', fontSize:13}}>{ad.callToAction||'安裝'}</Text></View></NativeAsset>
+      <NativeAsset assetType={NativeAssetType.BODY}><Text style={{color:th.tabOff,fontSize:13,marginTop:8,lineHeight:18}}>{nativeAd.body}</Text></NativeAsset>
+      <NativeMediaView style={{width:'100%',height:170,marginTop:10,backgroundColor:'#000',borderRadius:10}} />
+      <View style={{flexDirection:'row',justifyContent:'space-between',width:'100%',marginTop:12,alignItems:'center'}}>
+        <NativeAsset assetType={NativeAssetType.STAR_RATING}><Text style={{color:'#D4AF37',fontSize:12}}>★ {nativeAd.starRating||5}</Text></NativeAsset>
+        <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{backgroundColor:'#D4AF37',paddingHorizontal:18,paddingVertical:8,borderRadius:8}}><Text style={{color:'#000',fontWeight:'bold',fontSize:13}}>{nativeAd.callToAction||'查看'}</Text></View></NativeAsset>
       </View>
     </NativeAdView>
   );
 }
 function TopBanner({ready}){
-  return (
-    <View style={s.topAdSmall}>
-      {ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}
-    </View>
-  );
-  }export default function App(){
+  return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
+                                                                                                                                                                         }export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -232,8 +232,8 @@ function TopBanner({ready}){
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00', textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub, textAlign:'center'}]}>今日財神{daily.caiDir}</Text>
-          <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border, marginTop:14}]}>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir}</Text>
+          <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border,marginTop:14}]}>
             <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
             <TouchableOpacity style={s.goldBtn} onPress={function(){
               if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
@@ -249,7 +249,7 @@ function TopBanner({ready}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-    }  return (
+                                                                                                                                                                           }  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
