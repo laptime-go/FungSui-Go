@@ -1,4 +1,4 @@
-name: Build FungSui-Go v1 API36
+name: Build FungSui-Go v24 API36
 on:
   workflow_dispatch
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Install deps
         run: npm install
 
-      - name: Force app.json to 36 + v1 BEFORE prebuild
+      - name: Force app.json to 36 + v24 BEFORE prebuild
         run: |
           node -e "
           const fs=require('fs');
@@ -24,12 +24,10 @@ jobs:
           j.expo=j.expo||{};
           j.expo.version='1.0.0';
           j.expo.android=j.expo.android||{};
-          j.expo.android.versionCode=1;
-          let bp=(j.expo.plugins||[]).find(p=>Array.isArray(p)&&p[0]==='expo-build-properties');
-          if(bp){ bp[1].android.compileSdkVersion=36; bp[1].android.targetSdkVersion=36; bp[1].android.minSdkVersion=24; bp[1].android.kotlinVersion='2.0.21'; }
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
+          j.expo.android.versionCode=1;
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           "
 
@@ -40,21 +38,20 @@ jobs:
         run: |
           python3 - << 'PY'
           import pathlib, re
-          root=pathlib.Path("android")
-          bg_path=root/"build.gradle"
-          if bg_path.exists():
-            bg=bg_path.read_text(encoding='utf-8', errors='ignore')
-            bg=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 36',bg)
-            bg=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 36',bg)
-            bg_path.write_text(bg, encoding='utf-8')
-          for p in root.rglob("*.gradle"):
-              t=p.read_text(encoding='utf-8', errors='ignore')
-              t=t.replace('rootProject.ext.compileSdkVersion','36').replace('rootProject.ext.targetSdkVersion','36')
-              t=re.sub(r'compileSdkVersion\s*=?\s*34','compileSdkVersion = 36',t)
-              t=re.sub(r'targetSdkVersion\s*=?\s*34','targetSdkVersion = 36',t)
-              t=re.sub(r'compileSdk\s*=?\s*\d+','compileSdk = 36',t)
-              t=re.sub(r'kotlinVersion\s*=\s*["\'].*["\']','kotlinVersion = "2.0.21"',t)
-              p.write_text(t, encoding='utf-8')
+          bg_path=pathlib.Path("android/build.gradle")
+          bg=bg_path.read_text(encoding='utf-8', errors='ignore')
+          bg=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 36',bg)
+          bg=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 36',bg)
+          bg_path.write_text(bg, encoding='utf-8')
+          for p in pathlib.Path("android").rglob("*.gradle"):
+              try:
+                  t=p.read_text(encoding='utf-8', errors='ignore')
+                  t=t.replace('rootProject.ext.compileSdkVersion','36').replace('rootProject.ext.targetSdkVersion','36')
+                  t=re.sub(r'compileSdkVersion\s*=?\s*34','compileSdkVersion = 36',t)
+                  t=re.sub(r'targetSdkVersion\s*=?\s*34','targetSdkVersion = 36',t)
+                  t=re.sub(r'compileSdk\s*=?\s*\d+','compileSdk = 36',t)
+                  p.write_text(t, encoding='utf-8')
+              except: pass
           PY
 
       - name: Use Permanent Keystore
@@ -85,8 +82,8 @@ jobs:
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v1-api36-${{ github.run_number }}
-          name: fungsui Go v1 API36 #${{ github.run_number }}
+          tag_name: fungsui-v24-api36-${{ github.run_number }}
+          name: fungsui Go v24 API36 #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
