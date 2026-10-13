@@ -145,10 +145,10 @@ function TopBanner({ready}){
       appOpenAd.load();
     }catch(err){}
   },1000); },[]);
-  var currentMountain=useMemo(function(){ var i=(Math.floor((smooth+7.5)/15)+1)%24; return MOUNTAINS_INFO[i%24]||MOUNTAINS_INFO[0]; },[smooth]);
+  var currentMountain=useMemo(function(){ var idx=Math.round(smooth/15)%24; return MOUNTAINS_INFO[idx]||MOUNTAINS_INFO[0]; },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
   var showReward=function(cb){
-    if(rewardRef.current==null){ Alert.alert("提示","廣告準備中，稍後再試"); return; }
+    if(rewardRef.current==null){ Alert.alert("提示","廣告準備中"); return; }
     if(Date.now()-lastInter<30000){ cb(); return; }
     try{
       try{ rewardRef.current.removeAllListeners(); }catch(e){}
@@ -158,12 +158,9 @@ function TopBanner({ready}){
         try{ u1(); u2(); u3(); }catch(e){}
         setLastInter(Date.now());
         try{ rewardRef.current.load(); }catch(e){}
-        if(earned){ cb(); } else { cb(); }
+        if(earned){ cb(); } else { Alert.alert("提示","要睇完廣告先解鎖到，唔可以按返回"); }
       });
-      var u3=rewardRef.current.addAdEventListener(AdEventType.ERROR,function(){
-        try{ u1(); u2(); u3(); }catch(e){}
-        cb();
-      });
+      var u3=rewardRef.current.addAdEventListener(AdEventType.ERROR,function(){ try{ u1(); u2(); u3(); }catch(e){} Alert.alert("提示","廣告失敗，已為你解鎖"); cb(); });
       rewardRef.current.show().catch(function(){ try{ u1(); u2(); u3(); }catch(e){} cb(); });
     }catch(err){ cb(); }
   };
@@ -189,9 +186,8 @@ function TopBanner({ready}){
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:120}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.0 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{isDark?'暗色模式 - 風水夜用護眼':'日間模式 - 戶外清晰'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間☀️':'切換到 暗夜🌙'}</Text></TouchableOpacity></View>
+          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{isDark?'暗色模式':'日間模式'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間☀️':'切換到 暗夜🌙'}</Text></TouchableOpacity></View>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離磁性物品，平放畫8字');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity></View>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>儲存</Text><Text style={[s.setD,{color:isDark?'#999':'#666'}]}>{baziInput||'未設定'}</Text><TouchableOpacity style={s.darkBtn} onPress={async function(){ if(baziInput){ await AsyncStorage.setItem('bazi_v1',baziInput); Alert.alert('已儲存'); }}}><Text style={s.darkBtnText}>儲存</Text></TouchableOpacity><TouchableOpacity style={[s.darkBtn,{marginTop:8}]} onPress={async function(){ await AsyncStorage.clear(); setBaziInput(''); Alert.alert('已清除');}}><Text style={s.darkBtnText}>清除</Text></TouchableOpacity></View>
         </ScrollView>
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View></View>
       </View>
@@ -233,18 +229,17 @@ function TopBanner({ready}){
               <View style={s.luoInner}>
                 {MOUNTAINS_INFO.map(function(info,i){
                   var angle = i*15;
-                  var upright = -angle + smooth;
                   var isActive = currentMountain && currentMountain.m===info.m;
                   return (
-                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-115}]}]}>
-                      <View style={[s.markUpright, {transform:[{rotate:upright+"deg"}]}]}>
+                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-112}]}]}>
+                      <View style={s.markInnerRadial}>
                         <View style={[s.mountainDot, {backgroundColor:info.col}, isActive && s.mountainDotActive]} />
-                        <Text style={[s.mountainTextUpright, {color: isActive? '#000' : info.col}, isActive && s.mountainActive]}>{info.m}</Text>
+                        <Text style={[s.mountainTextRadial, {color: isActive? '#000' : info.col}, isActive && s.mountainActive]}>{info.m}</Text>
                       </View>
                     </View>
                   );
                 })}
-                <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:14}}>{currentMountain.m}</Text></View>
+                <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:15}}>{currentMountain.m}</Text></View>
               </View>
             </View>
           </View>
@@ -268,11 +263,11 @@ const s=StyleSheet.create({
   luoPan:{width:280,height:280, borderRadius:140, borderWidth:1, borderColor:'#332800', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
   luoInner:{width:220,height:220, borderRadius:110, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
   markPos:{position:'absolute', top:'50%', left:'50%', width:36, height:36, marginLeft:-18, marginTop:-18, alignItems:'center'},
-  markUpright:{width:36, height:36, alignItems:'center', justifyContent:'center'},
+  markInnerRadial:{width:36, height:36, alignItems:'center', justifyContent:'center'},
   mountainDot:{width:4,height:4, borderRadius:2, marginBottom:2}, mountainDotActive:{width:6,height:6, borderRadius:3},
-  mountainTextUpright:{fontSize:16, fontWeight:'bold', textAlign:'center', lineHeight:18},
+  mountainTextRadial:{fontSize:16, fontWeight:'bold', textAlign:'center', lineHeight:18},
   mountainActive:{color:'#000', fontWeight:'bold', fontSize:16, backgroundColor:'#FFD700', borderRadius:7, paddingHorizontal:6, paddingVertical:1},
-  centerDot:{width:52,height:52,borderRadius:26,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
+  centerDot:{width:54,height:54,borderRadius:27,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
   fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center'},
   needleTri:{width:0, height:0, borderLeftWidth:10, borderRightWidth:10, borderTopWidth:16, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
   needleLine:{width:2, height:18, backgroundColor:'#FF3B30', marginTop:-2},
