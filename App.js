@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, StatusBar, Platform } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
 const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
@@ -66,24 +66,32 @@ function getMountainByDeg(deg){
 }
 function NativeBox({ready,isDark}){
   var _n1=useState(null); var ad=_n1[0]; var setAd=_n1[1];
-  var _n2=useState(true); var fail=_n2[0]; var setFail=_n2[1];
   var th = isDark? THEME.dark : THEME.light;
   useEffect(function(){
     if(!ready) return;
     try{
-      var n=NativeAd.createForAdRequest(NATIVE_ID);
-      n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); setFail(false); });
-      n.addAdEventListener(NativeAdEventType.ERROR,function(){ setFail(true); });
+      var n=NativeAd.createForAdRequest(NATIVE_ID, {requestNonPersonalizedAdsOnly: false});
+      n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); });
+      n.addAdEventListener(NativeAdEventType.ERROR,function(){});
       n.load();
-    }catch(e){ setFail(true); }
+    }catch(e){}
   },[ready]);
-  if(fail) return null;
   if(!ad) return null;
   return (
     <NativeAdView nativeAd={ad} style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
-      <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:16}}>{ad.headline}</Text></NativeAsset>
-      <NativeAsset assetType={NativeAssetType.BODY}><Text style={{color: th.tabOff, fontSize:13, marginTop:6, lineHeight:18}}>{ad.body}</Text></NativeAsset>
-      <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{marginTop:10, backgroundColor:'#D4AF37', paddingHorizontal:16, paddingVertical:6, borderRadius:6}}><Text style={{color:'#000', fontWeight:'bold', fontSize:12}}>{ad.callToAction||'查看'}</Text></View></NativeAsset>
+      <View style={{flexDirection:'row', alignItems:'center', width:'100%'}}>
+        <NativeAsset assetType={NativeAssetType.ICON}><View style={{width:40,height:40,borderRadius:8,backgroundColor:'#333'}} /></NativeAsset>
+        <View style={{marginLeft:10, flex:1}}>
+          <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:15}}>{ad.headline}</Text></NativeAsset>
+          <NativeAsset assetType={NativeAssetType.ADVERTISER}><Text style={{color:th.tabOff, fontSize:11, marginTop:2}}>{ad.advertiser}</Text></NativeAsset>
+        </View>
+      </View>
+      <NativeAsset assetType={NativeAssetType.BODY}><Text style={{color: th.tabOff, fontSize:13, marginTop:8, lineHeight:18}}>{ad.body}</Text></NativeAsset>
+      <NativeMediaView style={{width:'100%', height:160, marginTop:10, backgroundColor:'#000', borderRadius:8}} />
+      <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:10, width:'100%'}}>
+        <NativeAsset assetType={NativeAssetType.STAR_RATING}><Text style={{color:'#D4AF37', fontSize:12}}>★ {ad.starRating||'5.0'}</Text></NativeAsset>
+        <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{backgroundColor:'#D4AF37', paddingHorizontal:18, paddingVertical:7, borderRadius:8}}><Text style={{color:'#000', fontWeight:'bold', fontSize:13}}>{ad.callToAction||'安裝'}</Text></View></NativeAsset>
+      </View>
     </NativeAdView>
   );
 }
@@ -93,7 +101,7 @@ function TopBanner({ready}){
       {ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}
     </View>
   );
-}export default function App(){
+  }export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -223,9 +231,9 @@ function TopBanner({ready}){
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
-        <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神{daily.caiDir}</Text>
-          <View style={[s.card,{width:'92%',backgroundColor:th.card,borderColor:th.border}]}>
+        <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00', textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub, textAlign:'center'}]}>今日財神{daily.caiDir}</Text>
+          <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border, marginTop:14}]}>
             <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
             <TouchableOpacity style={s.goldBtn} onPress={function(){
               if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
@@ -303,8 +311,8 @@ const s=StyleSheet.create({
   goldBtn:{backgroundColor:'#D4AF37', padding:14, borderRadius:12, marginTop:14, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold', fontSize:15},
   smallBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:10, borderRadius:10}, smallBtnT:{color:'#D4AF37', fontSize:13, fontWeight:'bold'},
   unlockedBox:{padding:14, borderRadius:12, marginTop:12}, unlockedText:{fontSize:14, lineHeight:22},
-  nativeBox:{width:'92%', borderRadius:14, padding:16, marginTop:18, minHeight:180, borderWidth:1, alignItems:'center', justifyContent:'center'},
-  adLabel:{fontSize:11, marginBottom:6}, input:{padding:14, borderRadius:10, borderWidth:1, marginTop:12, fontSize:15},
+  nativeBox:{width:'92%', borderRadius:14, padding:12, marginTop:18, minHeight:250, borderWidth:1},
+  input:{padding:14, borderRadius:10, borderWidth:1, marginTop:12, fontSize:15},
   bottomWrapperSafe:{position:'absolute', bottom:0, width:'100%', borderTopWidth:1, zIndex:99, elevation:99, paddingBottom: Platform.OS==='android'? 50 : 0},
   tabBar:{flexDirection:'row', width:'100%', height:62},
   tab:{flex:1, alignItems:'center', justifyContent:'center', paddingBottom:6}, tabOn:{borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#FFD700', fontWeight:'bold', fontSize:13}, tabOff:{fontSize:13},
@@ -312,5 +320,4 @@ const s=StyleSheet.create({
   fT:{fontWeight:'bold'}, fD:{fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
   setCard:{width:'100%', borderRadius:14, padding:16, marginTop:14, borderWidth:1},
   setT:{fontSize:15, fontWeight:'bold'}, setD:{fontSize:13, marginTop:8, lineHeight:20},
-  darkBtn:{backgroundColor:'#222', borderWidth:1, borderColor:'#D4AF37', padding:13, borderRadius:11, marginTop:12, alignItems:'center'}, darkBtnText:{color:'#D4AF37', fontWeight:'bold', fontSize:14},
 });
