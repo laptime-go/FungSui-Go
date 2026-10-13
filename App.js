@@ -76,10 +76,8 @@ function getMountainByDeg(deg){
       n.load();
     }catch(e){ setFail(true); }
   },[ready]);
-  if(fail){
-    return <View style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.adLabel,{color:th.tabOff}]}>推薦內容準備中</Text></View>;
-  }
-  if(!ad) return <View style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.adLabel,{color:th.tabOff}]}>推薦內容準備中</Text><View style={{marginTop:10, backgroundColor:th.border, width:'100%', height:110, borderRadius:8}} /></View>;
+  if(fail) return null;
+  if(!ad) return null;
   return (
     <View style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
       <Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:16}}>{ad.headline||'推薦'}</Text>
@@ -174,22 +172,24 @@ function TopBanner({ready}){
   };
   var showInter=function(cb){
     if(Date.now()-lastInter<90000){ if(typeof cb==='function') cb(); return; }
-    if(interRef.current==null ||!interReady){ if(typeof cb==='function') cb(); return; }
+    if(interRef.current==null ||!interReady){ Alert.alert("提示","廣告準備中，請稍後再試"); return; }
     try{
       try{ interRef.current.removeAllListeners(); }catch(e){}
-      var i1=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){
-        try{ i1(); i2(); }catch(e){}
+      var hasShown=false;
+      var i1=interRef.current.addAdEventListener(AdEventType.OPENED,function(){ hasShown=true; });
+      var i2=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){
+        try{ i1(); i2(); i3(); }catch(e){}
         setLastInter(Date.now());
         try{ interRef.current.load(); }catch(e){}
-        if(typeof cb==='function') cb();
+        if(hasShown && typeof cb==='function') cb();
       });
-      var i2=interRef.current.addAdEventListener(AdEventType.ERROR,function(){
-        try{ i1(); i2(); }catch(e){}
+      var i3=interRef.current.addAdEventListener(AdEventType.ERROR,function(){
+        try{ i1(); i2(); i3(); }catch(e){}
         try{ interRef.current.load(); }catch(e){}
-        if(typeof cb==='function') cb();
+        Alert.alert("提示","廣告載入失敗");
       });
-      interRef.current.show().catch(function(){ try{ i1(); i2(); }catch(e){} if(typeof cb==='function') cb(); });
-    }catch(err){ if(typeof cb==='function') cb(); }
+      interRef.current.show().catch(function(){ try{ i1(); i2(); i3(); }catch(e){} Alert.alert("提示","廣告顯示失敗"); });
+    }catch(err){ Alert.alert("提示","廣告錯誤"); }
   };
   var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
