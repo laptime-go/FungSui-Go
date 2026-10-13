@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, StatusBar, Platform } from 'react-native';
 import { Magnetometer, Accelerometer } from 'expo-sensors';
-import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
-const NATIVE_ID = "ca-app-pub-3940256099942544/2247696110";
+const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
 const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
 const REWARD_ID = "ca-app-pub-9890149028563226/6307389980";
 const OPEN_ID = "ca-app-pub-9890149028563226/1285440667";
@@ -66,13 +66,13 @@ function getMountainByDeg(deg){
 }
 function NativeBox({ready,isDark}){
   var _n1=useState(null); var ad=_n1[0]; var setAd=_n1[1];
-  var _n2=useState(false); var fail=_n2[0]; var setFail=_n2[1];
+  var _n2=useState(true); var fail=_n2[0]; var setFail=_n2[1];
   var th = isDark? THEME.dark : THEME.light;
   useEffect(function(){
     if(!ready) return;
     try{
       var n=NativeAd.createForAdRequest(NATIVE_ID);
-      n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); });
+      n.addAdEventListener(NativeAdEventType.LOADED,function(a){ setAd(a); setFail(false); });
       n.addAdEventListener(NativeAdEventType.ERROR,function(){ setFail(true); });
       n.load();
     }catch(e){ setFail(true); }
@@ -80,13 +80,11 @@ function NativeBox({ready,isDark}){
   if(fail) return null;
   if(!ad) return null;
   return (
-    <View style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
-      <Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:16}}>{ad.headline||'推薦'}</Text>
-      <Text style={{color: th.tabOff, fontSize:13, marginTop:6, lineHeight:18}}>{ad.body||''}</Text>
-      <View style={{marginTop:10, backgroundColor:'#D4AF37', paddingHorizontal:16, paddingVertical:6, borderRadius:6}}>
-        <Text style={{color:'#000', fontWeight:'bold', fontSize:12}}>查看</Text>
-      </View>
-    </View>
+    <NativeAdView nativeAd={ad} style={[s.nativeBox,{backgroundColor:th.card2,borderColor:th.border}]}>
+      <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{color:isDark?'#FFD700':'#8a6d00', fontWeight:'bold', fontSize:16}}>{ad.headline}</Text></NativeAsset>
+      <NativeAsset assetType={NativeAssetType.BODY}><Text style={{color: th.tabOff, fontSize:13, marginTop:6, lineHeight:18}}>{ad.body}</Text></NativeAsset>
+      <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{marginTop:10, backgroundColor:'#D4AF37', paddingHorizontal:16, paddingVertical:6, borderRadius:6}}><Text style={{color:'#000', fontWeight:'bold', fontSize:12}}>{ad.callToAction||'查看'}</Text></View></NativeAsset>
+    </NativeAdView>
   );
 }
 function TopBanner({ready}){
@@ -155,7 +153,7 @@ function TopBanner({ready}){
     }catch(err){}
   },1000); },[]);
   var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
-  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];  var showReward=function(cb){
+  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"]; var showReward=function(cb){
     if(rewardRef.current==null){ Alert.alert("提示","廣告準備中"); return; }
     try{
       try{ rewardRef.current.removeAllListeners(); }catch(e){}
@@ -243,8 +241,7 @@ function TopBanner({ready}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-  }
-  return (
+    }  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
