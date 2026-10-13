@@ -1,4 +1,4 @@
-name: Build FungSui-Go v24 API36
+name: Build FungSui-Go v1 API36
 on:
   workflow_dispatch
 jobs:
@@ -14,7 +14,7 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
       - name: Install deps
         run: npm install
-      - name: Force app.json to 36 + v24 BEFORE prebuild
+      - name: Force app.json to 36 + v1 BEFORE prebuild
         run: |
           node -e "
           const fs=require('fs');
@@ -24,7 +24,7 @@ jobs:
           j.expo.android.compileSdkVersion=36;
           j.expo.android.targetSdkVersion=36;
           j.expo.android.minSdkVersion=24;
-          j.expo.android.versionCode=24;
+          j.expo.android.versionCode=1;
           fs.writeFileSync('app.json', JSON.stringify(j,null,2));
           "
       - name: Expo prebuild
@@ -69,8 +69,8 @@ jobs:
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v24-api36-${{ github.run_number }}
-          name: fungsui Go v24 API36 #${{ github.run_number }}
+          tag_name: fungsui-v1-api36-${{ github.run_number }}
+          name: fungsui Go v1 API36 #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
