@@ -148,15 +148,26 @@ function TopBanner({ready}){
   var currentMountain=useMemo(function(){ var i=(Math.floor((smooth+7.5)/15)+1)%24; return MOUNTAINS_INFO[i%24]||MOUNTAINS_INFO[0]; },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
   var showReward=function(cb){
-    if(Date.now()-lastInter<60000){ Alert.alert("提示","60秒後再試"); return; }
-    if(rewardReady&&rewardRef.current){
+    if(rewardRef.current==null){ Alert.alert("提示","廣告準備中，稍後再試"); return; }
+    if(Date.now()-lastInter<30000){ cb(); return; }
+    try{
+      try{ rewardRef.current.removeAllListeners(); }catch(e){}
       var earned=false;
       var u1=rewardRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
-      var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){ u1(); u2(); if(earned){ setLastInter(Date.now()); cb(); } else { Alert.alert("提示","請看完廣告"); } });
-      rewardRef.current.show().catch(function(){ Alert.alert("提示","廣告準備中"); });
-    } else { Alert.alert("提示","廣告準備中"); try{ rewardRef.current&&rewardRef.current.load(); }catch(e){} }
+      var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
+        try{ u1(); u2(); u3(); }catch(e){}
+        setLastInter(Date.now());
+        try{ rewardRef.current.load(); }catch(e){}
+        if(earned){ cb(); } else { cb(); }
+      });
+      var u3=rewardRef.current.addAdEventListener(AdEventType.ERROR,function(){
+        try{ u1(); u2(); u3(); }catch(e){}
+        cb();
+      });
+      rewardRef.current.show().catch(function(){ try{ u1(); u2(); u3(); }catch(e){} cb(); });
+    }catch(err){ cb(); }
   };
-  var showInter=function(cb){ if(interReady&&interRef.current){ var s=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ s(); cb(); }); interRef.current.show().catch(function(){ cb(); }); } else { cb(); } };
+  var showInter=function(cb){ if(typeof cb==='function') cb(); };
   var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
@@ -193,7 +204,17 @@ function TopBanner({ready}){
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:10,paddingBottom:120}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神{daily.caiDir}</Text>
-          <View style={[s.card,{width:'92%',backgroundColor:th.card,borderColor:th.border}]}><TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} /><TouchableOpacity style={s.goldBtn} onPress={function(){ var r=calcBazi(baziInput); if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); showInter(function(){}); }}}><Text style={s.goldBtnText}>分析</Text></TouchableOpacity>{baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}</View>
+          <View style={[s.card,{width:'92%',backgroundColor:th.card,borderColor:th.border}]}>
+            <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
+            <TouchableOpacity style={s.goldBtn} onPress={function(){
+              if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
+              showReward(function(){
+                var r=calcBazi(baziInput);
+                if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }
+              });
+            }}><Text style={s.goldBtnText}>看廣告後免費分析</Text></TouchableOpacity>
+            {baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}
+          </View>
           <NativeBox ready={adsReady} isDark={isDark} />
         </ScrollView>
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View></View>
@@ -215,7 +236,7 @@ function TopBanner({ready}){
                   var upright = -angle + smooth;
                   var isActive = currentMountain && currentMountain.m===info.m;
                   return (
-                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-110}]}]}>
+                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-115}]}]}>
                       <View style={[s.markUpright, {transform:[{rotate:upright+"deg"}]}]}>
                         <View style={[s.mountainDot, {backgroundColor:info.col}, isActive && s.mountainDotActive]} />
                         <Text style={[s.mountainTextUpright, {color: isActive? '#000' : info.col}, isActive && s.mountainActive]}>{info.m}</Text>
@@ -246,11 +267,11 @@ const s=StyleSheet.create({
   luoPanOuter:{width:310,height:310, borderRadius:155, borderWidth:3, borderColor:'#D4AF37', backgroundColor:'#1A1500', alignItems:'center', justifyContent:'center'},
   luoPan:{width:280,height:280, borderRadius:140, borderWidth:1, borderColor:'#332800', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
   luoInner:{width:220,height:220, borderRadius:110, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
-  markPos:{position:'absolute', top:'50%', left:'50%', width:32, height:32, marginLeft:-16, marginTop:-16, alignItems:'center'},
-  markUpright:{width:32, height:32, alignItems:'center', justifyContent:'center'},
+  markPos:{position:'absolute', top:'50%', left:'50%', width:36, height:36, marginLeft:-18, marginTop:-18, alignItems:'center'},
+  markUpright:{width:36, height:36, alignItems:'center', justifyContent:'center'},
   mountainDot:{width:4,height:4, borderRadius:2, marginBottom:2}, mountainDotActive:{width:6,height:6, borderRadius:3},
-  mountainTextUpright:{fontSize:15, fontWeight:'bold', textAlign:'center', lineHeight:16},
-  mountainActive:{color:'#000', fontWeight:'bold', fontSize:15, backgroundColor:'#FFD700', borderRadius:6, paddingHorizontal:5, paddingVertical:1},
+  mountainTextUpright:{fontSize:16, fontWeight:'bold', textAlign:'center', lineHeight:18},
+  mountainActive:{color:'#000', fontWeight:'bold', fontSize:16, backgroundColor:'#FFD700', borderRadius:7, paddingHorizontal:6, paddingVertical:1},
   centerDot:{width:52,height:52,borderRadius:26,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
   fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center'},
   needleTri:{width:0, height:0, borderLeftWidth:10, borderRightWidth:10, borderTopWidth:16, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
