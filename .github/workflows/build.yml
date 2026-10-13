@@ -1,9 +1,11 @@
-name: Build FungSui-Go v26 API36 Expo52
-on: workflow_dispatch
+name: Build FungSui-Go v24 API36
+on:
+  workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions: { contents: write }
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -12,9 +14,37 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
       - name: Install deps
         run: npm install
+      - name: Force app.json to 36 + v24 BEFORE prebuild
+        run: |
+          node -e "
+          const fs=require('fs');
+          let j=JSON.parse(fs.readFileSync('app.json','utf8'));
+          j.expo=j.expo||{};
+          j.expo.android=j.expo.android||{};
+          j.expo.android.compileSdkVersion=36;
+          j.expo.android.targetSdkVersion=36;
+          j.expo.android.minSdkVersion=24;
+          j.expo.android.versionCode=24;
+          fs.writeFileSync('app.json', JSON.stringify(j,null,2));
+          "
       - name: Expo prebuild
         run: npx expo prebuild --clean --platform android
-      - name: Use Keystore
+      - name: ULTIMATE FORCE Fix API 36
+        run: |
+          python3 - << 'PY'
+          import pathlib, re
+          bg=pathlib.Path("android/build.gradle").read_text()
+          bg=re.sub(r'compileSdkVersion\s*=\s*\d+','compileSdkVersion = 36',bg)
+          bg=re.sub(r'targetSdkVersion\s*=\s*\d+','targetSdkVersion = 36',bg)
+          pathlib.Path("android/build.gradle").write_text(bg)
+          for p in pathlib.Path("android").rglob("*.gradle"):
+              t=p.read_text()
+              t=t.replace('rootProject.ext.compileSdkVersion','36').replace('rootProject.ext.targetSdkVersion','36')
+              t=re.sub(r'compileSdkVersion\s*=?\s*34','compileSdkVersion = 36',t)
+              t=re.sub(r'targetSdkVersion\s*=?\s*34','targetSdkVersion = 36',t)
+              p.write_text(t)
+          PY
+      - name: Use Permanent Keystore
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
@@ -30,17 +60,17 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-      - name: Build
+      - name: Build AAB + APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew bundleRelease assembleRelease --no-daemon -x lint
-      - name: Upload
+      - name: Upload AAB+APK to Release
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v26-api36-expo52-${{ github.run_number }}
-          name: fungsui Go v26 API36 Expo52 #${{ github.run_number }}
+          tag_name: fungsui-v24-api36-${{ github.run_number }}
+          name: fungsui Go v24 API36 #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
