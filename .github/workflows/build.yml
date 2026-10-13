@@ -1,5 +1,5 @@
-name: Build FungSui-Go v1.0 API36 FINAL
-on: { workflow_dispatch: }
+name: Build FungSui-Go v25 API36 FINAL
+on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,49 +12,23 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
       - name: Install deps
         run: npm install
-      - name: Force app.json to v1.0 code1 API36
-        run: |
-          node -e "
-          const fs=require('fs');
-          let j=JSON.parse(fs.readFileSync('app.json','utf8'));
-          j.expo.version='1.0.0';
-          j.expo.android.versionCode=1;
-          j.expo.android.minSdkVersion=24;
-          let bp=j.expo.plugins.find(p=>Array.isArray(p)&&p[0]==='expo-build-properties');
-          bp[1].android.minSdkVersion=24;
-          bp[1].android.compileSdkVersion=36;
-          bp[1].android.targetSdkVersion=36;
-          bp[1].android.kotlinVersion='1.9.22';
-          fs.writeFileSync('app.json', JSON.stringify(j,null,2));
-          console.log(fs.readFileSync('app.json','utf8'));
-          "
-      - name: Expo prebuild
+      - name: Expo prebuild true 36
         run: npx expo prebuild --clean --platform android
-      - name: ULTIMATE FIX API36 break red loop
+      - name: Force kotlin 2.0.21 + clean 34
         run: |
           python3 - << 'PY'
-          import pathlib, re
-          # 1. 容許36
-          open('android/gradle.properties','a').write('\nandroid.suppressUnsupportedCompileSdk=36\n')
-          # 2. 全面force 36
+          import pathlib, re, json
           for p in pathlib.Path("android").rglob("*.gradle"):
-            try:
-              t=p.read_text(encoding='utf-8', errors='ignore')
-              orig=t
-              t=re.sub(r'compileSdkVersion\s*=?\s*\d+', 'compileSdkVersion = 36', t)
-              t=re.sub(r'targetSdkVersion\s*=?\s*\d+', 'targetSdkVersion = 36', t)
-              t=re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk = 36', t)
-              t=t.replace('rootProject.ext.compileSdkVersion','36').replace('rootProject.ext.targetSdkVersion','36').replace('compileSdkVersion 34','compileSdkVersion 36').replace('targetSdkVersion 34','targetSdkVersion 36')
-              if t!=orig:
-                p.write_text(t, encoding='utf-8')
-            except: pass
-          # 3. Fix Kotlin nullable Array bug
-          core=pathlib.Path("android/app/build.gradle")
-          if core.exists():
-            t=core.read_text()
-            if 'kotlinOptions' not in t:
-              t=t.replace('android {', 'android {\n kotlinOptions { jvmTarget = \"17\" }\n')
-              core.write_text(t)
+              t=p.read_text()
+              t=re.sub(r'kotlinVersion\s*=\s*["\']?[\d\.]+["\']?', 'kotlinVersion = "2.0.21"', t)
+              t=t.replace('1.9.22','2.0.21')
+              t=re.sub(r'compileSdkVersion\s*=\s*34','compileSdkVersion = 36',t)
+              t=re.sub(r'targetSdkVersion\s*=\s*34','targetSdkVersion = 36',t)
+              p.write_text(t)
+          bg=pathlib.Path("android/build.gradle").read_text()
+          bg=re.sub(r'id\s+["\']org.jetbrains.kotlin.android["\']\s+version\s+["\'][\d\.]+["\']', 'id "org.jetbrains.kotlin.android" version "2.0.21"', bg)
+          pathlib.Path("android/build.gradle").write_text(bg)
+          print("patched kotlin to 2.0.21 and SDK to 36")
           PY
       - name: Use Permanent Keystore
         run: |
@@ -72,17 +46,17 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-      - name: Build AAB + APK
+      - name: Build AAB + APK API36
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lint
-      - name: Upload
+         ./gradlew bundleRelease assembleRelease --no-daemon -x lint
+      - name: Upload AAB+APK to Release
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v1.0-api36-${{ github.run_number }}
-          name: fungsui Go v1.0 API36 #${{ github.run_number }}
+          tag_name: fungsui-v25-api36-${{ github.run_number }}
+          name: fungsui Go v25 API36 FINAL #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
