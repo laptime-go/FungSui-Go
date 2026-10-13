@@ -76,8 +76,7 @@ function NativeBox({ready}){
       </View>
     </View>
   );
-}
-export default function App(){
+}export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -143,7 +142,7 @@ export default function App(){
       rewardRef.current.show().catch(function(){ Alert.alert("提示","廣告準備中"); });
     } else { Alert.alert("提示","廣告準備中"); try{ rewardRef.current&&rewardRef.current.load(); }catch(e){} }
   };
-  var showInter=function(cb){ if(interReady&&interRef.current){ var s=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ s(); cb(); }); interRef.current.show().catch(function(){ cb(); }); } else { cb(); } };  if(tab==='finance'){
+  var showInter=function(cb){ if(interReady&&interRef.current){ var s=interRef.current.addAdEventListener(AdEventType.CLOSED,function(){ s(); cb(); }); interRef.current.show().catch(function(){ cb(); }); } else { cb(); } };if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
       <View style={s.container}>
@@ -153,7 +152,7 @@ export default function App(){
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}</View>
         </View>
       </View>
     );
@@ -168,11 +167,12 @@ export default function App(){
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}</View>
         </View>
       </View>
     );
-}  if(tab==='bazi'){
+  }
+  if(tab==='bazi'){
     return (
       <View style={s.container}>
         <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center',paddingTop:25,paddingBottom:140}}>
@@ -182,7 +182,7 @@ export default function App(){
         </ScrollView>
         <View style={s.bottomWrapper}>
           <View style={s.tabBar}><TouchableOpacity style={s.tab} onPress={function(){setTab('compass');}}><Text style={s.tabOff}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
+          <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}</View>
         </View>
       </View>
     );
@@ -215,11 +215,11 @@ export default function App(){
       </ScrollView>
       <View style={s.bottomWrapper}>
         <View style={s.tabBar}><TouchableOpacity style={[s.tab,s.tabOn]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('finance');}}><Text style={s.tabOff}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('bazi');}}><Text style={s.tabOff}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){setTab('settings');}}><Text style={s.tabOff}>設定</Text></TouchableOpacity></View>
-        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>
+        <View style={s.bottomAd}>{adsReady && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}</View>
       </View>
     </View>
   );
-}const s=StyleSheet.create({
+    }const s=StyleSheet.create({
   container:{flex:1, backgroundColor:'#0a0a0a', alignItems:'center'},
   bigTitle:{color:'#FFD700', fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{color:'#D4AF37', fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:18, paddingBottom:8, backgroundColor:'#111', borderBottomWidth:1, borderColor:'#222'},
@@ -243,9 +243,9 @@ export default function App(){
   unlockedBox:{backgroundColor:'#252525', padding:14, borderRadius:12, marginTop:12}, unlockedText:{color:'#eee', fontSize:14, lineHeight:22},
   nativeBox:{width:'92%', backgroundColor:'#151515', borderRadius:14, padding:16, marginTop:18, minHeight:180, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
   adLabel:{color:'#666', fontSize:11, marginBottom:6}, input:{backgroundColor:'#222', color:'#fff', padding:14, borderRadius:10, borderWidth:1, borderColor:'#333', marginTop:12, fontSize:15},
-  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222'},
+  bottomWrapper:{position:'absolute', bottom:0, width:'100%', backgroundColor:'#111', borderTopWidth:1, borderColor:'#222', zIndex:10, elevation:10},
   tabBar:{flexDirection:'row', width:'100%', height:56, backgroundColor:'#111'},
-  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:52},
+  bottomAd:{width:'100%', alignItems:'center', backgroundColor:'#000', height:64, paddingBottom:12, justifyContent:'center'},
   tab:{flex:1, alignItems:'center', justifyContent:'center'}, tabOn:{backgroundColor:'#1e1e1e', borderTopWidth:2, borderColor:'#D4AF37'}, tabOnT:{color:'#D4AF37', fontWeight:'bold', fontSize:13}, tabOff:{color:'#777', fontSize:13},
   fCard:{width:'100%', backgroundColor:'#161616', borderRadius:14, padding:16, marginTop:12, borderWidth:1, borderColor:'#2a2a2a'}, fCardToday:{backgroundColor:'#1a1708', borderWidth:2},
   fT:{fontWeight:'bold'}, fD:{color:'#aaa', fontSize:13, marginTop:8, lineHeight:19}, fL:{color:'#D4AF37', fontSize:13, marginTop:8},
