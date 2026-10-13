@@ -1,4 +1,4 @@
-name: Build FungSui-Go v25 API36 FIXED
+name: Build FungSui-Go v26 API36 Expo52
 on: workflow_dispatch
 jobs:
   build:
@@ -12,24 +12,9 @@ jobs:
         with: { distribution: 'temurin', java-version: '17' }
       - name: Install deps
         run: npm install
-      - name: Expo prebuild true 36
+      - name: Expo prebuild
         run: npx expo prebuild --clean --platform android
-      - name: FIX kotlin 1.9.22 -> 2.0.21 for API36
-        run: |
-          echo "=== patch all gradle ==="
-          find android -type f -name "*.gradle" -o -name "gradle.properties" | xargs sed -i 's/1\.9\.22/2.0.21/g'
-          find android -type f -name "*.gradle" | xargs sed -i 's/compileSdkVersion = 34/compileSdkVersion = 36/g; s/targetSdkVersion = 34/targetSdkVersion = 36/g; s/compileSdkVersion 34/compileSdkVersion 36/g; s/targetSdkVersion 34/targetSdkVersion 36/g'
-          # 確保 build.gradle 的 kotlin 插件版本
-          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "2.0.21"/' android/build.gradle
-          # 強制 settings.gradle 嘅 pluginManagement
-          if [ -f android/settings.gradle ]; then
-            sed -i 's/id("org.jetbrains.kotlin.android") version ".*"/id("org.jetbrains.kotlin.android") version "2.0.21"/' android/settings.gradle
-          fi
-          # 加上兼容參數
-          echo "kotlin.mpp.androidSourceSetLayoutVersion=2" >> android/gradle.properties
-          echo "=== verify ==="
-          grep -r "kotlinVersion\|kotlin.android" android/build.gradle | head -20
-      - name: Use Permanent Keystore
+      - name: Use Keystore
         run: |
           mkdir -p android/app
           printf '%s' "${{ secrets.KEYSTONE_B64 }}" | tr -d '\n\r ' | base64 --decode > android/app/release.keystore
@@ -45,17 +30,17 @@ jobs:
           echo "MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.KEYSTONE_ALIAS }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
           echo "MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.KEYSTONE_PASSWORD }}" >> android/gradle.properties
-      - name: Build AAB + APK API36
+      - name: Build
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease assembleRelease --no-daemon -x lint --stacktrace
-      - name: Upload AAB+APK to Release
+          ./gradlew bundleRelease assembleRelease --no-daemon -x lint
+      - name: Upload
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: fungsui-v25-api36-fixed-${{ github.run_number }}
-          name: fungsui Go v25 API36 FIXED #${{ github.run_number }}
+          tag_name: fungsui-v26-api36-expo52-${{ github.run_number }}
+          name: fungsui Go v26 API36 Expo52 #${{ github.run_number }}
           files: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk
