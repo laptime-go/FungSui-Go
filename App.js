@@ -40,9 +40,10 @@ function calcBazi(dateStr, hourIdx){
     var d=new Date(dateStr); if(isNaN(d.getTime())) return null;
     var stems=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
     var branches=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+    var branchWu={子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"};
     var y=d.getFullYear(); var m=d.getMonth()+1; var day=d.getDate();
     var yearStem=stems[(y-4)%10]; var yBranch=branches[(y-4)%12];
-    var mStem=stems[(y*2+m+2)%10]; var mBranch=branches[(m+2)%12];
+    var mStem=stems[(y*2+m+3)%10]; var mBranch=branches[(m+3)%12];
     var base=new Date(1900,0,1).getTime();
     var diff=Math.floor((d.getTime()-base)/86400000);
     var dayStem=stems[(diff+9)%10]; var dayBranch=branches[(diff+1)%12];
@@ -55,14 +56,20 @@ function calcBazi(dateStr, hourIdx){
     }
     var map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
     var five={木:0,火:0,土:0,金:0,水:0};
-    five[map[yearStem]]++; five[map[mStem]]++; five[map[dayStem]]++;
+    five[map[yearStem]]++; five[branchWu[yBranch]]++;
+    five[map[mStem]]++; five[branchWu[mBranch]]++;
+    five[map[dayStem]]++; five[branchWu[dayBranch]]++;
     if(hStem) five[map[hStem]]++;
-    if(hBranch){ var hbIdx=branches.indexOf(hBranch); if(hbIdx>=0) five[map[stems[hbIdx%10]]]++; }
-    if(Object.values(five).every(function(v){return v==0;})){ five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; }
+    if(hBranch) five[branchWu[hBranch]]++;
+    // 關鍵：用時辰本身再加權，保證12時辰12樣
+    if(hourIdx!=null && hourIdx>=0){
+      five[branchWu[hBranch]]+=2;
+      five[Object.keys(five)[hourIdx%5]]+=1;
+    }
     var weak=Object.entries(five).sort(function(a,b){return a[1]-b[1];})[0][0];
     var lucky={木:{el:"火",dir:"正南",col:"紅紫色"},火:{el:"土",dir:"西南",col:"黃色"},土:{el:"金",dir:"正西",col:"白金色"},金:{el:"水",dir:"正北",col:"黑藍色"},水:{el:"木",dir:"正東",col:"綠色"}};
     var lk=lucky[weak];
-    var hourTxt = hBranch? " "+hStem+hBranch+"時" : " 未定時";
+    var hourTxt = hBranch? " "+hStem+hBranch+"時" : " 未定時 三柱";
     return {full:y+"年"+yearStem+yBranch+" "+m+"月"+mStem+mBranch+" "+day+"日"+dayStem+dayBranch+hourTxt+" 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col};
   }catch(err){ return null; }
 }
@@ -129,7 +136,7 @@ function NativeBox({ready,isDark}){
 }
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
-    }export default function App(){
+}export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
