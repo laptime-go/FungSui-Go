@@ -125,6 +125,7 @@ function TopBanner({ready}){
   var _s10=useState(0); var lastInter=_s10[0]; var setLastInter=_s10[1];
   var _s11=useState(false); var rewardReady=_s11[0]; var setRewardReady=_s11[1];
   var _s12=useState(true); var isDark=_s12[0]; var setIsDark=_s12[1];
+  var _s13=useState(0); var lastBazi=_s13[0]; var setLastBazi=_s13[1];
   var interRef=useRef(null); var rewardRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
   var th = isDark? THEME.dark : THEME.light;
@@ -149,7 +150,7 @@ function TopBanner({ready}){
         });
         var sv=await AsyncStorage.getItem('bazi_v1'); if(sv){ setBaziInput(sv); }
         var tm=await AsyncStorage.getItem('theme_v1'); if(tm){ setIsDark(tm==='dark'); }
-        var uc=await AsyncStorage.getItem('unlock_cai_v1'); if(uc==='1'){ setUnlockedCai(true); }
+        var bt=await AsyncStorage.getItem('bazi_unlock_v1'); if(bt){ setLastBazi(parseInt(bt,10)||0); }
       }catch(err){}
     })();
     return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); } }catch(err){} };
@@ -183,7 +184,9 @@ function TopBanner({ready}){
       var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
         try{ u1(); u2(); u3(); }catch(e){}
         try{ rewardRef.current.load(); }catch(e){}
-        if(earned){ setLastInter(Date.now()); cb(); } else { Alert.alert("提示","要睇完廣告先解鎖到，中途按返回係唔會解鎖㗎"); }
+        if(earned){
+          var now=Date.now(); setLastInter(now); setLastBazi(now); AsyncStorage.setItem('bazi_unlock_v1', String(now)); cb();
+        } else { Alert.alert("提示","要睇完廣告先解鎖到，中途按返回係唔會解鎖㗎"); }
       });
       var u3=rewardRef.current.addAdEventListener(AdEventType.ERROR,function(){ try{ u1(); u2(); u3(); }catch(e){} Alert.alert("提示","廣告失敗，稍後再試"); });
       rewardRef.current.show().catch(function(){ try{ u1(); u2(); u3(); }catch(e){} });
@@ -232,22 +235,28 @@ function TopBanner({ready}){
     );
   }
   if(tab==='bazi'){
+    var isBaziFree = Date.now()-lastBazi < 30*60*1000;
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir}</Text>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir} {isBaziFree?'30分鐘內免費':''}</Text>
           <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border,marginTop:14}]}>
             <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
             <TouchableOpacity style={s.goldBtn} onPress={function(){
               if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
-              showReward(function(){
+              if(isBaziFree){
                 var r=calcBazi(baziInput);
                 if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }
-              });
-            }}><Text style={s.goldBtnText}>看廣告後免費分析</Text></TouchableOpacity>
+              } else {
+                showReward(function(){
+                  var r2=calcBazi(baziInput);
+                  if(!r2){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r2); AsyncStorage.setItem('bazi_v1',baziInput); }
+                });
+              }
+            }}><Text style={s.goldBtnText}>{isBaziFree?'免費分析（30分鐘內免費）':'看廣告解鎖30分鐘免費分析'}</Text></TouchableOpacity>
             {baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}
           </View>
           <NativeBox ready={adsReady} isDark={isDark} />
@@ -285,7 +294,22 @@ function TopBanner({ready}){
           <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /></View>
           <View style={[s.northBadge,{backgroundColor:th.top,borderColor:'#D4AF37'}]}><Text style={s.northBadgeT}>北 {Math.round(smooth)}° {currentDir}</Text></View>
         </View>
-        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5, backgroundColor:th.card}]}><Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name}</Text><Text style={[s.cardDesc,{color:th.text}]}>{fly.desc}</Text><Text style={[s.mountainDetail,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行</Text>{!unlockedCai? (<TouchableOpacity style={s.goldBtn} onPress={function(){showReward(function(){setUnlockedCai(true); AsyncStorage.setItem('unlock_cai_v1','1');});}}><Text style={s.goldBtnText}>看廣告解鎖佈局</Text></TouchableOpacity>) : (<View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{fly.lay} 今日財神{daily.caiDir} 喜神{daily.xiDir}</Text><View style={{flexDirection:'row', marginTop:10}}><TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay});}}><Text style={s.smallBtnT}>分享</Text></TouchableOpacity><TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false); AsyncStorage.removeItem('unlock_cai_v1');}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity></View></View>)}</View>
+        <View style={[s.card, {borderColor: fly.color, borderWidth:1.5, backgroundColor:th.card}]}>
+          <Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name}</Text>
+          <Text style={[s.cardDesc,{color:th.text}]}>{fly.desc}</Text>
+          <Text style={[s.mountainDetail,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行</Text>
+          {!unlockedCai? (
+            <TouchableOpacity style={s.goldBtn} onPress={function(){setUnlockedCai(true);}}><Text style={s.goldBtnText}>查看佈局</Text></TouchableOpacity>
+          ) : (
+            <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}>
+              <Text style={[s.unlockedText,{color:th.text}]}>{fly.lay} 今日財神{daily.caiDir} 喜神{daily.xiDir}</Text>
+              <View style={{flexDirection:'row', marginTop:10}}>
+                <TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay});}}><Text style={s.smallBtnT}>分享</Text></TouchableOpacity>
+                <TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
         <NativeBox ready={adsReady} isDark={isDark} />
       </ScrollView>
       <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('bazi');}}><Text style={[s.tabOff,{color:th.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
