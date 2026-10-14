@@ -32,8 +32,8 @@ const FLY_2026 = {
   "正西": {star:"七赤", name:"破財位", cai:25, color:"#FF8E53", good:false, desc:"破財位", lay:"放清水同藍色地氈。"},
   "西北": {star:"六白", name:"貴人位", cai:88, color:"#D4AF37", good:true, desc:"貴人位", lay:"放金屬風鈴。"},
 };const THEME = {
-  dark: { bg:'#080808', card:'#1c1c1e', card2:'#151515', text:'#fff', sub:'#D4AF37', top:'#111', border:'#333', input:'#222', tabOff:'#aaa' },
-  light: { bg:'#f5f3e8', card:'#ffffff', card2:'#fff8e1', text:'#222', sub:'#8a6d00', top:'#ffffff', border:'#e0d5b0', input:'#f0e6c8', tabOff:'#666' }
+  dark: { bg:'#0a0a0a', card:'#1c1c1e', card2:'#161616', text:'#fff', sub:'#D4AF37', top:'#111', border:'#333', input:'#222', tabOff:'#eee' },
+  light: { bg:'#f5f3e8', card:'#ffffff', card2:'#fff8e1', text:'#222', sub:'#8a6d00', top:'#ffffff', border:'#e0d5b0', input:'#f0e6c8', tabOff:'#555' }
 };
 function calcBazi(dateStr, hourIdx){
   try{
@@ -42,7 +42,7 @@ function calcBazi(dateStr, hourIdx){
     var branches=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
     var y=d.getFullYear(); var m=d.getMonth()+1; var day=d.getDate();
     var yearStem=stems[(y-4)%10]; var yBranch=branches[(y-4)%12];
-    var mStem=stems[(y*2+m)%10]; var mBranch=branches[(m+1)%12];
+    var mStem=stems[(y*2+m+2)%10]; var mBranch=branches[(m+2)%12];
     var base=new Date(1900,0,1).getTime();
     var diff=Math.floor((d.getTime()-base)/86400000);
     var dayStem=stems[(diff+9)%10]; var dayBranch=branches[(diff+1)%12];
@@ -57,12 +57,13 @@ function calcBazi(dateStr, hourIdx){
     var five={木:0,火:0,土:0,金:0,水:0};
     five[map[yearStem]]++; five[map[mStem]]++; five[map[dayStem]]++;
     if(hStem) five[map[hStem]]++;
-    if(Object.values(five).every(function(v){return v==0;})){ five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; five[map[dayStem]]++; }
+    if(hBranch){ var hbIdx=branches.indexOf(hBranch); if(hbIdx>=0) five[map[stems[hbIdx%10]]]++; }
+    if(Object.values(five).every(function(v){return v==0;})){ five={木:1,火:1,土:1,金:1,水:1}; five[map[yearStem]]++; }
     var weak=Object.entries(five).sort(function(a,b){return a[1]-b[1];})[0][0];
     var lucky={木:{el:"火",dir:"正南",col:"紅紫色"},火:{el:"土",dir:"西南",col:"黃色"},土:{el:"金",dir:"正西",col:"白金色"},金:{el:"水",dir:"正北",col:"黑藍色"},水:{el:"木",dir:"正東",col:"綠色"}};
     var lk=lucky[weak];
-    var hourTxt = hBranch? " "+hStem+hBranch+"時" : "";
-    return {full:y+"年"+yearStem+yBranch+" "+m+"月"+mStem+mBranch+" "+day+"日"+dayBranch+hourTxt+" 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col};
+    var hourTxt = hBranch? " "+hStem+hBranch+"時" : " 未定時";
+    return {full:y+"年"+yearStem+yBranch+" "+m+"月"+mStem+mBranch+" "+day+"日"+dayStem+dayBranch+hourTxt+" 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col};
   }catch(err){ return null; }
 }
 function getDaily(){
@@ -128,7 +129,7 @@ function NativeBox({ready,isDark}){
 }
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
-      }export default function App(){
+    }export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -297,7 +298,7 @@ function TopBanner({ready}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-    }  return (
+}  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
@@ -305,43 +306,39 @@ function TopBanner({ready}){
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:130, paddingTop:4}}>
         <View style={[s.topBar,{backgroundColor:th.top,borderColor:th.border}]}><Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>風水佬Go {Math.round(smooth)}°</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
         <View style={s.luoPanWrap}>
-          <View style={[s.luoPanOuter,{shadowColor:fly.color, borderColor:fly.color}]}>
+          <View style={s.luoPanOuter}>
             <View style={[s.luoPan, {transform:[{rotate:-smooth+"deg"}]}]}>
               <View style={s.luoInner}>
-                {Array.from({length:24}).map(function(_,i){
-                  return (<View key={"tick"+i} style={[s.tickPos,{transform:[{rotate:i*15+"deg"},{translateY:-136}]}]}><View style={[s.tickLine,{backgroundColor:i%2==0?'#D4AF37':'#555'}]} /></View>);
-                })}
                 {MOUNTAINS_INFO.map(function(info,i){
                   var angle = i*15;
                   var isActive = currentMountain && currentMountain.m===info.m;
                   return (
-                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-110}]}]}>
-                      <View style={[s.markInnerRadial,{transform:[{rotate:smooth+"deg"}]}]}>
+                    <View key={info.m} style={[s.markPos, {transform:[{rotate:angle+"deg"}, {translateY:-112}]}]}>
+                      <View style={s.markInnerRadial}>
                         <View style={[s.mountainDot, {backgroundColor:info.col}, isActive && s.mountainDotActive]} />
                         <Text style={[s.mountainTextRadial, {color: isActive? '#000' : info.col}, isActive && s.mountainActive]}>{info.m}</Text>
-                        <Text style={[s.guaText,{color:th.tabOff}]}>{info.gua}</Text>
                       </View>
                     </View>
                   );
                 })}
-                <View style={[s.centerDot,{borderColor:fly.color}]}><Text style={{color:'#000',fontWeight:'bold',fontSize:16}}>{currentMountain.m}</Text><Text style={{color:'#000',fontSize:8,marginTop:1}}>{currentMountain.wu}</Text></View>
+                <View style={s.centerDot}><Text style={{color:'#000',fontWeight:'bold',fontSize:15}}>{currentMountain.m}</Text></View>
               </View>
             </View>
           </View>
-          <View style={s.fixedNeedleWrap}><View style={[s.needleTriGlow,{backgroundColor:fly.color}]} /><View style={s.needleTri} /><View style={[s.needleLine,{backgroundColor:'#FF3B30', height:30}]} /></View>
-          <View style={[s.northBadge,{backgroundColor:th.top,borderColor:fly.color}]}><Text style={[s.northBadgeT,{color:fly.color}]}>北 {Math.round(smooth)}° {currentDir} {fly.cai}%</Text></View>
+          <View style={s.fixedNeedleWrap}><View style={s.needleTri} /><View style={s.needleLine} /></View>
+          <View style={[s.northBadge,{backgroundColor:th.top,borderColor:'#D4AF37'}]}><Text style={s.northBadgeT}>北 {Math.round(smooth)}° {currentDir}</Text></View>
         </View>
         <View style={[s.card, {borderColor: fly.color, borderWidth:1.5, backgroundColor:th.card}]}>
-          <Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name} {fly.cai>=80?'旺':''}</Text>
+          <Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name}</Text>
           <Text style={[s.cardDesc,{color:th.text}]}>{fly.desc}</Text>
-          <Text style={[s.mountainDetail,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行 {currentMountain.cai}</Text>
+          <Text style={[s.mountainDetail,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行</Text>
           {!unlockedCai? (
-            <TouchableOpacity style={s.goldBtn} onPress={function(){setUnlockedCai(true);}}><Text style={s.goldBtnText}>查看{currentDir}佈局</Text></TouchableOpacity>
+            <TouchableOpacity style={s.goldBtn} onPress={function(){setUnlockedCai(true);}}><Text style={s.goldBtnText}>查看佈局</Text></TouchableOpacity>
           ) : (
             <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}>
               <Text style={[s.unlockedText,{color:th.text}]}>{fly.lay} 今日財神{daily.caiDir} 喜神{daily.xiDir}</Text>
               <View style={{flexDirection:'row', marginTop:10}}>
-                <TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay+" - 風水佬Go"});}}><Text style={s.smallBtnT}>分享</Text></TouchableOpacity>
+                <TouchableOpacity style={s.smallBtn} onPress={function(){Share.share({message:currentDir+fly.name+" "+fly.lay});}}><Text style={s.smallBtnT}>分享</Text></TouchableOpacity>
                 <TouchableOpacity style={[s.smallBtn,{marginLeft:10}]} onPress={function(){setUnlockedCai(false);}}><Text style={s.smallBtnT}>收起</Text></TouchableOpacity>
               </View>
             </View>
@@ -358,25 +355,21 @@ const s=StyleSheet.create({
   topAdSmall:{width:'100%', backgroundColor:'#ffffff', height:52, alignItems:'center', justifyContent:'center', borderBottomWidth:2, borderColor:'#D4AF37'},
   bigTitle:{fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:10, paddingBottom:6, borderBottomWidth:1},
-  luoPanWrap:{width:340,height:380, alignItems:'center', justifyContent:'center', marginTop:12},
-  luoPanOuter:{width:320,height:320, borderRadius:160, borderWidth:3, backgroundColor:'#120e00', alignItems:'center', justifyContent:'center', shadowOpacity:0.5, shadowRadius:16, shadowOffset:{width:0,height:0}, elevation:12},
-  luoPan:{width:300,height:300, borderRadius:150, borderWidth:1, borderColor:'#332800', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
-  luoInner:{width:240,height:240, borderRadius:120, borderWidth:1, borderColor:'#222', alignItems:'center', justifyContent:'center'},
-  tickPos:{position:'absolute', top:'50%', left:'50%', width:2, height:10, marginLeft:-1, marginTop:-5, alignItems:'center'},
-  tickLine:{width:2, height:8, borderRadius:1},
-  markPos:{position:'absolute', top:'50%', left:'50%', width:44, height:44, marginLeft:-22, marginTop:-22, alignItems:'center'},
-  markInnerRadial:{width:44, height:44, alignItems:'center', justifyContent:'center'},
-  mountainDot:{width:5,height:5, borderRadius:2.5, marginBottom:2}, mountainDotActive:{width:8,height:8, borderRadius:4, borderWidth:1, borderColor:'#fff'},
-  mountainTextRadial:{fontSize:17, fontWeight:'bold', textAlign:'center', lineHeight:18},
-  mountainActive:{color:'#000', fontWeight:'bold', fontSize:17, backgroundColor:'#FFD700', borderRadius:8, paddingHorizontal:7, paddingVertical:2, overflow:'hidden'},
-  guaText:{fontSize:8, marginTop:1},
-  centerDot:{width:62,height:62,borderRadius:31,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:3, elevation:4},
-  fixedNeedleWrap:{position:'absolute', top:-6, alignItems:'center'},
-  needleTri:{width:0, height:0, borderLeftWidth:12, borderRightWidth:12, borderTopWidth:20, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30', zIndex:2},
-  needleTriGlow:{position:'absolute', top:0, width:0, height:0, borderLeftWidth:18, borderRightWidth:18, borderTopWidth:28, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30', opacity:0.25, zIndex:1},
-  needleLine:{width:3, backgroundColor:'#FF3B30', marginTop:-2, borderRadius:1},
-  northBadge:{position:'absolute', bottom:2, paddingHorizontal:14, paddingVertical:6, borderRadius:12, borderWidth:1.5},
-  northBadgeT:{fontSize:12, fontWeight:'bold'},
+  luoPanWrap:{width:320,height:350, alignItems:'center', justifyContent:'center', marginTop:12},
+  luoPanOuter:{width:310,height:310, borderRadius:155, borderWidth:3, borderColor:'#D4AF37', backgroundColor:'#1A1500', alignItems:'center', justifyContent:'center'},
+  luoPan:{width:280,height:280, borderRadius:140, borderWidth:1, borderColor:'#332800', backgroundColor:'#141414', alignItems:'center', justifyContent:'center'},
+  luoInner:{width:220,height:220, borderRadius:110, borderWidth:1, borderColor:'#333', alignItems:'center', justifyContent:'center'},
+  markPos:{position:'absolute', top:'50%', left:'50%', width:36, height:36, marginLeft:-18, marginTop:-18, alignItems:'center'},
+  markInnerRadial:{width:36, height:36, alignItems:'center', justifyContent:'center'},
+  mountainDot:{width:4,height:4, borderRadius:2, marginBottom:2}, mountainDotActive:{width:6,height:6, borderRadius:3},
+  mountainTextRadial:{fontSize:16, fontWeight:'bold', textAlign:'center', lineHeight:18},
+  mountainActive:{color:'#000', fontWeight:'bold', fontSize:16, backgroundColor:'#FFD700', borderRadius:7, paddingHorizontal:6, paddingVertical:1},
+  centerDot:{width:54,height:54,borderRadius:27,backgroundColor:'#FFD700',alignItems:'center',justifyContent:'center', borderWidth:2, borderColor:'#fff'},
+  fixedNeedleWrap:{position:'absolute', top:-2, alignItems:'center'},
+  needleTri:{width:0, height:0, borderLeftWidth:10, borderRightWidth:10, borderTopWidth:16, borderLeftColor:'transparent', borderRightColor:'transparent', borderTopColor:'#FF3B30'},
+  needleLine:{width:2, height:18, backgroundColor:'#FF3B30', marginTop:-2},
+  northBadge:{position:'absolute', bottom:0, paddingHorizontal:12, paddingVertical:5, borderRadius:10, borderWidth:1},
+  northBadgeT:{color:'#FFD700', fontSize:11, fontWeight:'bold'},
   card:{width:'92%', borderRadius:16, padding:18, marginTop:18, borderWidth:1},
   cardTitle:{fontWeight:'bold'}, cardDesc:{marginTop:8, lineHeight:22, fontSize:15}, mountainDetail:{fontSize:12, marginTop:8},
   goldBtn:{backgroundColor:'#D4AF37', padding:14, borderRadius:12, marginTop:14, alignItems:'center'}, goldBtnText:{color:'#000', fontWeight:'bold', fontSize:15},
