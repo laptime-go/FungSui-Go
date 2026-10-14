@@ -112,7 +112,7 @@ function NativeBox({ready,isDark}){
 }
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
-}export default function App(){
+    }export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -126,6 +126,7 @@ function TopBanner({ready}){
   var _s11=useState(false); var rewardReady=_s11[0]; var setRewardReady=_s11[1];
   var _s12=useState(true); var isDark=_s12[0]; var setIsDark=_s12[1];
   var _s13=useState(0); var lastBazi=_s13[0]; var setLastBazi=_s13[1];
+  var _s14=useState(0); var tick=_s14[0]; var setTick=_s14[1];
   var interRef=useRef(null); var rewardRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var daily=useMemo(function(){return getDaily();},[]);
   var th = isDark? THEME.dark : THEME.light;
@@ -156,6 +157,7 @@ function TopBanner({ready}){
     return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); } }catch(err){} };
   },[]);
   useEffect(function(){ var t=setInterval(function(){ var d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2) setSmooth(function(v){return (v+d*0.3+360)%360;}); },33); return function(){ clearInterval(t); }; },[heading,smooth]);
+  useEffect(function(){ var t2=setInterval(function(){ setTick(function(v){return v+1;}); },1000); return function(){ clearInterval(t2); }; },[]);
   useEffect(function(){ setTimeout(async function(){
     try{
       await mobileAds().initialize(); setAdsReady(true);
@@ -235,14 +237,18 @@ function TopBanner({ready}){
     );
   }
   if(tab==='bazi'){
-    var isBaziFree = Date.now()-lastBazi < 30*60*1000;
+    var leftMs = 30*60*1000 - (Date.now()-lastBazi);
+    var isBaziFree = leftMs > 0;
+    var leftMin = Math.floor(leftMs/60000);
+    var leftSec = Math.floor((leftMs%60000)/1000);
+    var leftStr = leftMin+"分"+(leftSec<10?"0":"")+leftSec+"秒";
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir} {isBaziFree?'30分鐘內免費':''}</Text>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir} {isBaziFree?'剩餘'+leftStr:''}</Text>
           <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border,marginTop:14}]}>
             <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
             <TouchableOpacity style={s.goldBtn} onPress={function(){
@@ -256,7 +262,7 @@ function TopBanner({ready}){
                   if(!r2){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r2); AsyncStorage.setItem('bazi_v1',baziInput); }
                 });
               }
-            }}><Text style={s.goldBtnText}>{isBaziFree?'免費分析（30分鐘內免費）':'看廣告解鎖30分鐘免費分析'}</Text></TouchableOpacity>
+            }}><Text style={s.goldBtnText}>{isBaziFree?'免費分析（剩餘'+leftStr+'）':'看廣告解鎖30分鐘免費分析'}</Text></TouchableOpacity>
             {baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}
           </View>
           <NativeBox ready={adsReady} isDark={isDark} />
