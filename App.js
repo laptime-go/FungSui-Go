@@ -239,7 +239,7 @@ function PrivacyModal({visible,onClose,isDark}){
     var sub = AppState.addEventListener('change', function(next){
       if(appStateRef.current.match(/inactive|background/) && next==='active'){
         if(Date.now()-lastAppOpenShow.current > 30000){
-          try{ if(appOpenRef.current){ appOpenRef.current.show(); lastAppOpenShow.current=Date.now(); }catch(e){}
+          try{ if(appOpenRef.current){ appOpenRef.current.show(); lastAppOpenShow.current=Date.now(); }}catch(e){}
         }
       }
       appStateRef.current=next;
