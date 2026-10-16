@@ -1,20 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Share, StatusBar, Platform, Linking, Modal, AppState } from 'react-native';
-import { Magnetometer } from 'expo-sensors';
+import { Magnetometer, Accelerometer } from 'expo-sensors';
 import mobileAds, { BannerAd, BannerAdSize, InterstitialAd, RewardedAd, NativeAd, RewardedAdEventType, AdEventType, NativeAdEventType, AppOpenAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, MaxAdContentRating } from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const VERSION = "1.0";
 const BANNER_ID = "ca-app-pub-9890149028563226/7565306387";
 const NATIVE_ID = "ca-app-pub-9890149028563226/9108090368";
 const INTER_ID = "ca-app-pub-9890149028563226/5859110495";
 const REWARD_ID = "ca-app-pub-9890149028563226/6307389980";
 const OPEN_ID = "ca-app-pub-9890149028563226/1285440667";
-const PRIVACY_URL = 'https://laptime-go.github.io/FungSui-Go/privacy.html';
-const SUPPORT_EMAIL = 'mailto:fungfung1984@gmail.com';
 
-const DISCLAIMER_TEXT = "本應用所有內容，包括羅盤、財位、八字分析，純屬娛樂參考，不構成投資、醫療、法律或風水專業建議。結果僅供參考，請勿完全依賴。";
-const PRIVACY_TEXT = "本應用不會收集、儲存或上傳你的個人資料。八字輸入只保留喺你部手機入面，不會傳送到伺服器。本應用使用Google AdMob，可能會收集裝置廣告ID作廣告用途，詳情見私隱政策。如有問題，請聯絡 fungfung1984@gmail.com";
+const PRIVACY_URL = "https://laptime-go.github.io/FungSui-Go/privacy.html";
+const CONTACT_EMAIL = "fungfung1984@gmail.com";
 
 const MOUNTAINS_INFO = [
   {m:"壬",gua:"坎",wu:"水",deg:"337.5-352.5",low:337.5,high:352.5,cai:"偏財",col:"#4A90E2"}, {m:"子",gua:"坎",wu:"水",deg:"352.5-7.5",low:352.5,high:7.5,cai:"帝旺",col:"#4A90E2"},
@@ -80,14 +77,12 @@ const THEME = {
     return {full:y+"年"+yearStem+yBranch+" "+m+"月"+mStem+mBranch+" "+day+"日"+dayStem+dayBranch+hourTxt+" 日主"+dayStem, five:five, xi:weak, el:lk.el, dir:lk.dir, col:lk.col};
   }catch(err){ return null; }
 }
-
 function getDaily(){
   var now=new Date(); var day=now.getDate();
   var yday=Math.floor((now - new Date(now.getFullYear(),0,0))/1000/60/60/24);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"];
   return {date:(now.getMonth()+1)+"月"+day+"日", caiDir:dirs[(day*3+yday*2)%8], xiDir:dirs[(day*5+3)%8], col:["黑藍","黃金","綠色","紅紫","白金"][day%5]};
 }
-
 function getMountainByDeg(deg){
   deg=(deg%360+360)%360;
   for(var i=0;i<MOUNTAINS_INFO.length;i++){
@@ -97,7 +92,6 @@ function getMountainByDeg(deg){
   }
   return MOUNTAINS_INFO[1];
 }
-
 function NativeBox({ready,isDark}){
   const [nativeAd,setNativeAd] = useState(null);
   const [noFill,setNoFill] = useState(false);
@@ -105,16 +99,15 @@ function NativeBox({ready,isDark}){
   useEffect(()=>{
     if(!ready) return;
     let curAd = null;
-    let isMounted = true;
-    (function(){
+    (async ()=>{
       try{
-        curAd = NativeAd.createForAdRequest(NATIVE_ID);
-        curAd.addAdEventListener(NativeAdEventType.LOADED, (a)=>{ if(isMounted){ setNativeAd(a.nativeAd || a); setNoFill(false); } });
-        curAd.addAdEventListener(NativeAdEventType.ERROR, ()=>{ if(isMounted){ setNoFill(true); } });
-        curAd.load();
-      }catch(e){ if(isMounted){ setNoFill(true); } }
+        curAd = await NativeAd.createForAdRequest(NATIVE_ID);
+        curAd.addAdEventListener(NativeAdEventType.LOADED, (a)=>{ setNativeAd(a.nativeAd || a); setNoFill(false); });
+        curAd.addAdEventListener(NativeAdEventType.ERROR, ()=>{ setNoFill(true); });
+        await curAd.load();
+      }catch(e){ setNoFill(true); }
     })();
-    return ()=>{ isMounted=false; try{ if(curAd) curAd.destroy(); }catch(e){} };
+    return ()=>{ try{ if(curAd) curAd.destroy(); }catch(e){} };
   },[ready]);
   if(noFill){
     return (
@@ -145,32 +138,30 @@ function NativeBox({ready,isDark}){
     </View>
   );
 }
-
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER} />}</View>);
 }
-
-function DisclaimerModal({visible, onAccept}){
-  const th = THEME.dark;
-  if(!visible) return null;
+function PrivacyModal({visible,onClose,isDark}){
+  var th = isDark? THEME.dark : THEME.light;
   return (
     <Modal visible={visible} transparent={true} animationType="slide">
-      <View style={{flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'center', padding:24}}>
-        <View style={{backgroundColor:th.card, borderRadius:16, padding:20, borderWidth:1, borderColor:'#D4AF37'}}>
-          <Text style={{color:'#FFD700', fontSize:18, fontWeight:'bold', textAlign:'center'}}>免責聲明</Text>
-          <Text style={{color:th.text, fontSize:14, lineHeight:22, marginTop:12}}>{DISCLAIMER_TEXT}</Text>
-          <Text style={{color:th.tabOff, fontSize:12, lineHeight:20, marginTop:10}}>{PRIVACY_TEXT}</Text>
-          <TouchableOpacity style={s.goldBtn} onPress={onAccept}>
-            <Text style={s.goldBtnText}>我已了解，繼續使用</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{marginTop:12, alignItems:'center'}} onPress={function(){ Linking.openURL(PRIVACY_URL); }}>
-            <Text style={{color:'#4A90E2', fontSize:13}}>查看完整私隱政策</Text>
-          </TouchableOpacity>
+      <View style={{flex:1, backgroundColor:'rgba(0,0,0,0.7)', justifyContent:'center', padding:20}}>
+        <View style={{backgroundColor:th.card, borderRadius:16, padding:20, borderWidth:1, borderColor:th.border, maxHeight:'80%'}}>
+          <Text style={{color:'#FFD700', fontSize:18, fontWeight:'bold', marginBottom:10}}>私隱政策</Text>
+          <ScrollView>
+            <Text style={{color:th.text, fontSize:13, lineHeight:20}}>
+              本App所有八字資料只儲存喺你部手機，唔會上傳到伺服器。廣告由Google AdMob提供，可能會收集裝置資訊作廣告用途，詳情請參閱Google私隱政策。本App風水內容只供娛樂參考，唔係專業風水意見。
+            </Text>
+            <Text style={{color:th.text, fontSize:13, lineHeight:20, marginTop:10}}>聯絡電郵: {CONTACT_EMAIL}</Text>
+            <Text style={{color:'#4A90E2', fontSize:13, lineHeight:20, marginTop:4}} onPress={()=>Linking.openURL(PRIVACY_URL)}>私隱網址: {PRIVACY_URL}</Text>
+          </ScrollView>
+          <TouchableOpacity style={s.goldBtn} onPress={onClose}><Text style={s.goldBtnText}>關閉</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.goldBtn,{backgroundColor:'#555',marginTop:8}]} onPress={()=>Linking.openURL(PRIVACY_URL)}><Text style={s.goldBtnText}>用瀏覽器打開完整版</Text></TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
-    }export default function App(){
+                }export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -185,26 +176,30 @@ function DisclaimerModal({visible, onAccept}){
   var _s11=useState(false); var rewardReady=_s11[0]; var setRewardReady=_s11[1];
   var _s12=useState(true); var isDark=_s12[0]; var setIsDark=_s12[1];
   var _s13=useState(0); var lastBazi=_s13[0]; var setLastBazi=_s13[1];
-  var _s14=useState(Date.now()); var nowTick=_s14[0]; var setNowTick=_s14[1];
-  var _s15=useState(false); var disclaimerVisible=_s15[0]; var setDisclaimerVisible=_s15[1];
+  var _s14=useState(0); var tick=_s14[0]; var setTick=_s14[1];
+  var _s15=useState(false); var showPrivacy=_s15[0]; var setShowPrivacy=_s15[1];
+  var _s16=useState(0); var interCount=_s16[0]; var setInterCount=_s16[1];
   var interRef=useRef(null); var rewardRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
-  var appOpenLoadedAt=useRef(0);
+  var appStateRef=useRef(AppState.currentState);
+  var lastAppOpenShow=useRef(0);
   var daily=useMemo(function(){return getDaily();},[]);
   var th = isDark? THEME.dark : THEME.light;
   var statusH = Platform.OS==='android'? ((StatusBar.currentHeight||24)+6) : 44;
 
   useEffect(function(){
-    var mSub=null; var first=true;
+    var mSub=null; var aSub=null; var first=true;
     (async function(){
       try{
-        try{ await Magnetometer.setUpdateIntervalAsync(100); }catch(e){}
+        try{ await Magnetometer.setUpdateIntervalAsync(100); }catch(e){ await Magnetometer.setUpdateInterval(100); }
+        try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ await Accelerometer.setUpdateInterval(200); }
+        aSub=Accelerometer.addListener(function(){});
         mSub=Magnetometer.addListener(function(d){
           if(!d) return;
           if(first){ magF.current={x:d.x||0,y:d.y||0,z:d.z||0}; first=false; }
           else { magF.current.x=magF.current.x*0.5+(d.x||0)*0.5; magF.current.y=magF.current.y*0.5+(d.y||0)*0.5; }
           var x=magF.current.x; var y=magF.current.y;
           setMagDebug(daily.caiDir+" "+daily.xiDir);
-          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360;
+          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360; angle=(angle+180)%360;
           var diff=angle-lastRaw.current; if(diff>180) diff-=360; if(diff<-180) diff+=360;
           lastRaw.current=(lastRaw.current+diff*0.4+360)%360;
           setHeading(lastRaw.current);
@@ -212,21 +207,18 @@ function DisclaimerModal({visible, onAccept}){
         var sv=await AsyncStorage.getItem('bazi_v1'); if(sv){ setBaziInput(sv); }
         var tm=await AsyncStorage.getItem('theme_v1'); if(tm){ setIsDark(tm==='dark'); }
         var bt=await AsyncStorage.getItem('bazi_unlock_v1'); if(bt){ setLastBazi(parseInt(bt,10)||0); }
-        var dv=await AsyncStorage.getItem('disclaimer_seen_v1'); if(!dv){ setDisclaimerVisible(true); }
       }catch(err){}
     })();
-    return function(){ try{ if(mSub){ mSub.remove(); }catch(err){} };
+    return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); }catch(err){} };
   },[]);
 
   useEffect(function(){ var t=setInterval(function(){ var d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2) setSmooth(function(v){return (v+d*0.3+360)%360;}); },33); return function(){ clearInterval(t); }; },[heading,smooth]);
-
-  useEffect(function(){ var t2=setInterval(function(){ setNowTick(Date.now()); },1000); return function(){ clearInterval(t2); }; },[]);
+  useEffect(function(){ var t2=setInterval(function(){ setTick(function(v){return v+1;}); },1000); return function(){ clearInterval(t2); }; },[]);
 
   useEffect(function(){ setTimeout(async function(){
     try{
-      await mobileAds().initialize();
-      try{ await mobileAds().setRequestConfiguration({maxAdContentRating: MaxAdContentRating.G}); }catch(e){}
-      setAdsReady(true);
+      await mobileAds().setRequestConfiguration({maxAdContentRating: MaxAdContentRating.MA});
+      await mobileAds().initialize(); setAdsReady(true);
       const inter = InterstitialAd.createForAdRequest(INTER_ID);
       interRef.current=inter; inter.load();
       inter.addAdEventListener(AdEventType.LOADED,function(){setInterReady(true);});
@@ -237,95 +229,58 @@ function DisclaimerModal({visible, onAccept}){
       reward.addAdEventListener(AdEventType.CLOSED,function(){ setRewardReady(false); try{ reward.load(); }catch(e){} });
       const appOpenAd = AppOpenAd.createForAdRequest(OPEN_ID);
       appOpenRef.current=appOpenAd;
-      appOpenAd.addAdEventListener(AdEventType.LOADED,function(){ appOpenLoadedAt.current=Date.now(); });
       appOpenAd.addAdEventListener(AdEventType.CLOSED,function(){ try{ appOpenAd.load(); }catch(e){} });
-      appOpenAd.load();
+      appOpenAd.addAdEventListener(AdEventType.ERROR,function(){ try{ appOpenAd.load(); }catch(e){} });
+      try{ appOpenAd.load(); }catch(e){}
     }catch(err){}
   },1000); },[]);
 
   useEffect(function(){
-    var sub = AppState.addEventListener('change', function(state){
-      if(state==='active'){
-        try{
-          var ad=appOpenRef.current;
-          if(ad && Date.now()-appOpenLoadedAt.current < 3600000 && Date.now()-appOpenLoadedAt.current > 5000){
-            ad.show();
-            appOpenLoadedAt.current=0;
-          }
-        }catch(e){}
+    var sub = AppState.addEventListener('change', function(next){
+      if(appStateRef.current.match(/inactive|background/) && next==='active'){
+        if(Date.now()-lastAppOpenShow.current > 30000){
+          try{ if(appOpenRef.current){ appOpenRef.current.show(); lastAppOpenShow.current=Date.now(); }catch(e){}
+        }
       }
+      appStateRef.current=next;
     });
     return function(){ try{ sub.remove(); }catch(e){} };
   },[]);
 
-  var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
-  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
-
+  var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.round(smooth/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
   var showReward=function(cb){
-    if(!rewardRef.current ||!rewardReady){ Alert.alert("提示","廣告準備中，請稍後再試"); return; }
+    if(!rewardRef.current ||!rewardReady){ Alert.alert("提示","廣告準備中，稍後再試"); return; }
+    var earned=false;
+    var u1=null; var u2=null; var u3=null;
     try{
-      var earned=false;
-      var u1=rewardRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
-      var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
-        try{ u1(); u2(); }catch(e){}
-        try{ rewardRef.current.load(); setRewardReady(false); }catch(e){}
+      u1=rewardRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
+      u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
+        try{ if(u1) u1(); }catch(e){}
+        try{ if(u2) u2(); }catch(e){}
+        try{ if(u3) u3(); }catch(e){}
+        try{ rewardRef.current.load(); }catch(e){}
         if(earned){
           var now=Date.now(); setLastInter(now); setLastBazi(now); AsyncStorage.setItem('bazi_unlock_v1', String(now)); cb();
         } else { Alert.alert("提示","要睇完廣告先解鎖到，中途按返回係唔會解鎖㗎"); }
       });
-      rewardRef.current.show();
-    }catch(err){ Alert.alert("提示","廣告失敗，稍後再試"); }
+      u3=rewardRef.current.addAdEventListener(AdEventType.ERROR,function(){ try{ if(u1) u1(); }catch(e){} try{ if(u2) u2(); }catch(e){} try{ if(u3) u3(); }catch(e){} Alert.alert("提示","廣告失敗，稍後再試"); });
+      rewardRef.current.show().catch(function(){ try{ if(u1) u1(); }catch(e){} try{ if(u2) u2(); }catch(e){} try{ if(u3) u3(); }catch(e){} });
+    }catch(err){}
   };
-
   var goTab=function(t){
     if(t!==tab){
-      if(Date.now()-lastInter>180000 && interRef.current && interReady){
+      if(Date.now()-lastInter>180000 && interRef.current && interReady && interCount<2){
         try{
           interRef.current.show();
           setLastInter(Date.now());
           setInterReady(false);
+          setInterCount(interCount+1);
         }catch(e){}
       }
     }
     setTab(t);
   };
-
-  var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
-  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"];
-  var currentDir=dirs[Math.round(smooth/45)%8];
-  var fly=FLY_2026[currentDir]||FLY_2026["正北"];
-
-  var showReward=function(cb){
-    if(!rewardRef.current ||!rewardReady){ Alert.alert("提示","廣告準備中，請稍後再試"); return; }
-    try{
-      var earned=false;
-      var u1=rewardRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
-      var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
-        try{ u1(); u2(); }catch(e){}
-        try{ rewardRef.current.load(); setRewardReady(false); }catch(e){}
-        if(earned){
-          var now=Date.now(); setLastInter(now); setLastBazi(now); AsyncStorage.setItem('bazi_unlock_v1', String(now)); cb();
-        } else { Alert.alert("提示","要睇完廣告先解鎖到，中途按返回係唔會解鎖㗎"); }
-      });
-      rewardRef.current.show();
-    }catch(err){ Alert.alert("提示","廣告失敗，稍後再試"); }
-  };
-
-  var goTab=function(t){
-    if(t!==tab){
-      if(Date.now()-lastInter>180000 && interRef.current && interReady){
-        try{
-          interRef.current.show();
-          setLastInter(Date.now());
-          setInterReady(false);
-        }catch(e){}
-      }
-    }
-    setTab(t);
-  };
-
   var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };
-
   if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
@@ -333,17 +288,20 @@ function DisclaimerModal({visible, onAccept}){
         <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
-        <DisclaimerModal visible={disclaimerVisible} onAccept={async function(){ setDisclaimerVisible(false); await AsyncStorage.setItem('disclaimer_seen_v1','1'); }} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>財位總覽</Text><Text style={[s.bigSub,{color:th.sub}]}>{daily.date} 財神 {daily.caiDir} 喜神 {daily.xiDir}</Text>
-          <Text style={[s.setD,{color:th.tabOff, marginTop:8}]}>{DISCLAIMER_TEXT}</Text>
-          {list.map(function(pair){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (<View key={k} style={[s.fCard,{backgroundColor:th.card2,borderColor:isToday?v.color:th.border}, isToday && s.fCardToday]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} {v.star} {isToday?'★':''}</Text><Text style={[s.fD,{color:th.tabOff}]}>{v.desc}</Text><Text style={s.fL}>{v.lay}</Text></View>); })}
+          {list.map(function(pair, idx){ var k=pair[0]; var v=pair[1]; var isToday=k===daily.caiDir; return (
+            <React.Fragment key={k}>
+              <View style={[s.fCard,{backgroundColor:th.card2,borderColor:isToday?v.color:th.border}, isToday && s.fCardToday]}><Text style={[s.fT,{color:v.color, fontSize:17}]}>{k} {v.name} {v.star} {isToday?'★':''}</Text><Text style={[s.fD,{color:th.tabOff}]}>{v.desc}</Text><Text style={s.fL}>{v.lay}</Text></View>
+              {idx===4 && <NativeBox ready={adsReady} isDark={isDark} />}
+            </React.Fragment>
+          ); })}
+          <NativeBox ready={adsReady} isDark={isDark} />
         </ScrollView>
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('bazi');}}><Text style={[s.tabOff,{color:th.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
   }
-
   if(tab==='settings'){
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
@@ -351,23 +309,27 @@ function DisclaimerModal({visible, onAccept}){
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v{VERSION} {isDark?'夜':'日'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:th.tabOff}]}>{isDark?'暗色模式':'日間模式'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間':'切換到 暗夜'}</Text></TouchableOpacity></View>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.1 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
+          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:th.tabOff}]}>{isDark?'暗色模式':'日間模式'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間☀️':'切換到 暗夜🌙'}</Text></TouchableOpacity></View>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離磁性物品，平放畫8字');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity></View>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>私隱政策</Text><Text style={[s.setD,{color:th.tabOff}]}>{PRIVACY_TEXT}</Text><TouchableOpacity style={s.goldBtn} onPress={function(){ Linking.openURL(PRIVACY_URL); }}><Text style={s.goldBtnText}>查看完整私隱政策</Text></TouchableOpacity><TouchableOpacity style={[s.goldBtn,{backgroundColor:'#555', marginTop:10}]} onPress={function(){ Linking.openURL(SUPPORT_EMAIL); }}><Text style={[s.goldBtnText,{color:'#fff'}]}>聯絡開發者 fungfung1984@gmail.com</Text></TouchableOpacity></View>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>免責聲明</Text><Text style={[s.setD,{color:th.tabOff}]}>{DISCLAIMER_TEXT}</Text></View>
+          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>私隱及支援</Text><Text style={[s.setD,{color:th.tabOff}]}>電郵：{CONTACT_EMAIL}</Text>
+            <TouchableOpacity style={s.goldBtn} onPress={function(){setShowPrivacy(true);}}><Text style={s.goldBtnText}>查看私隱政策</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.goldBtn,{backgroundColor:'#555',marginTop:8}]} onPress={function(){Linking.openURL(PRIVACY_URL);}}><Text style={s.goldBtnText}>瀏覽器打開私隱頁</Text></TouchableOpacity>
+            <TouchableOpacity style={[s.goldBtn,{backgroundColor:'#555',marginTop:8}]} onPress={function(){Linking.openURL('mailto:'+CONTACT_EMAIL);}}><Text style={s.goldBtnText}>聯絡我們</Text></TouchableOpacity>
+            <Text style={[s.setD,{color:th.tabOff, marginTop:10}]}>本App風水及八字內容只供娛樂參考，唔係專業意見。</Text>
+          </View>
+          <NativeBox ready={adsReady} isDark={isDark} />
         </ScrollView>
+        <PrivacyModal visible={showPrivacy} onClose={function(){setShowPrivacy(false);}} isDark={isDark} />
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('bazi');}}><Text style={[s.tabOff,{color:th.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
   }
-
   if(tab==='bazi'){
-    var leftMs = 30*60*1000 - (nowTick - lastBazi);
-    var isBaziFree = lastBazi===0 || leftMs > 0;
-    var showLeft = leftMs > 0? leftMs : 0;
-    var leftMin = Math.floor(showLeft/60000);
-    var leftSec = Math.floor((showLeft%60000)/1000);
+    var leftMs = 30*60*1000 - (Date.now()-lastBazi);
+    var isBaziFree = lastBazi===0 || leftMs <= 0;
+    var leftMin = Math.floor(Math.max(0,leftMs)/60000);
+    var leftSec = Math.floor((Math.max(0,leftMs)%60000)/1000);
     var leftStr = leftMin+"分"+(leftSec<10?"0":"")+leftSec+"秒";
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
@@ -375,8 +337,7 @@ function DisclaimerModal({visible, onAccept}){
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir} {isBaziFree?'剩餘'+leftStr:''}</Text>
-          <Text style={[s.setD,{color:th.tabOff, textAlign:'center', marginTop:6}]}>{DISCLAIMER_TEXT}</Text>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00',textAlign:'center'}]}>八字</Text><Text style={[s.bigSub,{color:th.sub,textAlign:'center'}]}>今日財神{daily.caiDir} {!isBaziFree?'剩餘'+leftStr:''}</Text>
           <View style={[s.card,{width:'100%',backgroundColor:th.card,borderColor:th.border,marginTop:14}]}>
             <TextInput style={[s.input,{backgroundColor:th.input,color:th.text,borderColor:th.border}]} placeholder="YYYY-MM-DD" placeholderTextColor="#666" value={baziInput} onChangeText={setBaziInput} />
             <View style={{flexDirection:'row', flexWrap:'wrap', marginTop:10}}>
@@ -393,32 +354,32 @@ function DisclaimerModal({visible, onAccept}){
               if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
               if(isBaziFree){
                 var r=calcBazi(baziInput,baziHour);
-                if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); setLastBazi(Date.now()); AsyncStorage.setItem('bazi_v1',baziInput); AsyncStorage.setItem('bazi_unlock_v1', String(Date.now())); }
+                if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { var now2=Date.now(); setLastBazi(now2); AsyncStorage.setItem('bazi_unlock_v1', String(now2)); setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }
               } else {
                 showReward(function(){
                   var r2=calcBazi(baziInput,baziHour);
                   if(!r2){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r2); AsyncStorage.setItem('bazi_v1',baziInput); }
                 });
               }
-            }}><Text style={s.goldBtnText}>{isBaziFree?'免費分析（剩餘'+leftStr+'）':'看廣告解鎖30分鐘免費分析'}</Text></TouchableOpacity>
+            }}><Text style={s.goldBtnText}>{isBaziFree? (lastBazi===0? '免費分析' : '免費分析（剩餘'+leftStr+'）') : '睇廣告可免費再分析30分鐘'}</Text></TouchableOpacity>
             {baziRes && <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0'}]}><Text style={[s.unlockedText,{color:th.text}]}>{baziRes.error?baziRes.error: (baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col)}</Text></View>}
+            <Text style={{color:th.tabOff, fontSize:11, marginTop:10, textAlign:'center'}}>本工具只供娛樂，八字結果僅供參考</Text>
           </View>
           <NativeBox ready={adsReady} isDark={isDark} />
         </ScrollView>
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-    }  return (
+    }return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
       <TopBanner ready={adsReady} />
-      <DisclaimerModal visible={disclaimerVisible} onAccept={async function(){ setDisclaimerVisible(false); await AsyncStorage.setItem('disclaimer_seen_v1','1'); }} />
       <ScrollView style={{width:'100%'}} contentContainerStyle={{alignItems:'center', paddingBottom:130, paddingTop:4}}>
-        <View style={[s.topBar,{backgroundColor:th.top,borderColor:th.border}]}><Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>風水佬Go {Math.round(smooth)}°</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} {currentDir} {fly.star}</Text></View>
+        <View style={[s.topBar,{backgroundColor:th.top,borderColor:th.border}]}><Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>風水佬Go {Math.round(smooth)}°</Text><Text style={[s.bigSub,{color:th.sub}]}>今日財神 {daily.caiDir} 喜神 {daily.xiDir} • {currentDir} {fly.star}</Text></View>
         <View style={s.luoPanWrap}>
           <View style={s.luoPanOuter}>
-            <View style={[s.luoPan, {transform:[{rotate:-smooth+"deg"}]}]}>
+            <View style={[s.luoPan, {transform:[{rotate: (-smooth)+"deg"}]}]}>
               <View style={s.luoInner}>
                 {MOUNTAINS_INFO.map(function(info,i){
                   var angle = i*15;
@@ -443,7 +404,6 @@ function DisclaimerModal({visible, onAccept}){
           <Text style={[s.cardTitle, {color:fly.color, fontSize:18}]}>{currentDir} - {fly.star}{fly.name}</Text>
           <Text style={[s.cardDesc,{color:th.text}]}>{fly.desc}</Text>
           <Text style={[s.mountainDetail,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.deg}° {currentMountain.wu}行</Text>
-          <Text style={[s.mountainDetail,{color:th.tabOff, marginTop:6}]}>{DISCLAIMER_TEXT}</Text>
           {!unlockedCai? (
             <TouchableOpacity style={s.goldBtn} onPress={function(){setUnlockedCai(true);}}><Text style={s.goldBtnText}>查看佈局</Text></TouchableOpacity>
           ) : (
@@ -462,10 +422,9 @@ function DisclaimerModal({visible, onAccept}){
     </View>
   );
 }
-
 const s=StyleSheet.create({
   container:{flex:1, alignItems:'center'},
-  topAdSmall:{width:'100%', backgroundColor:'#ffffff', height:52, alignItems:'center', justifyContent:'center', borderBottomWidth:2, borderColor:'#D4AF37'},
+  topAdSmall:{width:'100%', backgroundColor:'transparent', height:52, alignItems:'center', justifyContent:'center', borderBottomWidth:2, borderColor:'#D4AF37'},
   bigTitle:{fontSize:24, fontWeight:'bold', textAlign:'center'}, bigSub:{fontSize:13, marginTop:6, textAlign:'center'},
   topBar:{width:'100%', alignItems:'center', paddingTop:10, paddingBottom:6, borderBottomWidth:1},
   luoPanWrap:{width:320,height:350, alignItems:'center', justifyContent:'center', marginTop:12},
