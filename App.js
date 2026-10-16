@@ -255,8 +255,10 @@ function TopBanner({ready}){
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
           <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.0 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:th.tabOff}]}>{isDark?'暗色模式':'日間模式'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間☀️':'切換到 暗夜🌙'}</Text></TouchableOpacity></View>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離磁性物品，平放畫8字');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity></View>
-          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>私隱及支援</Text><Text style={[s.setD,{color:th.tabOff}]}>八字只儲存喺手機，唔會上傳。風水內容只供娛樂參考。</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Linking.openURL(PRIVACY_URL);}}><Text style={s.goldBtnText}>瀏覽器打開私隱頁</Text></TouchableOpacity><TouchableOpacity style={s.goldBtn} onPress={function(){Linking.openURL('mailto:'+CONTACT_EMAIL);}}><Text style={s.goldBtnText}>聯絡我們</Text></TouchableOpacity></View>
+          <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','遠離磁性物品，平放畫8字');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity>
+          <TouchableOpacity style={s.goldBtn} onPress={function(){Linking.openURL(PRIVACY_URL);}}><Text style={s.goldBtnText}>私隱政策</Text></TouchableOpacity>
+          <TouchableOpacity style={s.goldBtn} onPress={function(){Linking.openURL('mailto:'+CONTACT_EMAIL);}}><Text style={s.goldBtnText}>聯絡我哋</Text></TouchableOpacity>
+          </View>
         </ScrollView>
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('bazi');}}><Text style={[s.tabOff,{color:th.tabOff}]}>八字</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>設定</Text></TouchableOpacity></View></View>
       </View>
@@ -264,9 +266,10 @@ function TopBanner({ready}){
   }
   if(tab==='bazi'){
     var leftMs = 30*60*1000 - (Date.now()-lastBazi);
-    var isBaziFree = lastBazi===0 || leftMs <= 0;
-    var leftMin = Math.floor(Math.max(0,leftMs)/60000);
-    var leftSec = Math.floor((Math.max(0,leftMs)%60000)/1000);
+    var isBaziFree = lastBazi===0 || leftMs > 0;
+    var dispMs = lastBazi===0? 30*60*1000 : Math.max(0, leftMs);
+    var leftMin = Math.floor(dispMs/60000);
+    var leftSec = Math.floor((dispMs%60000)/1000);
     var leftStr = leftMin+"分"+(leftSec<10?"0":"")+leftSec+"秒";
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
@@ -306,7 +309,7 @@ function TopBanner({ready}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-  }  return (
+    }  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
