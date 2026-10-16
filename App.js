@@ -96,7 +96,9 @@ function getMountainByDeg(deg){
     else { if(deg>=info.low && deg<info.high) return info; }
   }
   return MOUNTAINS_INFO[1];
-}function NativeBox({ready,isDark}){
+}
+
+function NativeBox({ready,isDark}){
   const [nativeAd,setNativeAd] = useState(null);
   const [noFill,setNoFill] = useState(false);
   const th = isDark? THEME.dark : THEME.light;
@@ -183,6 +185,7 @@ function DisclaimerModal({visible, onAccept}){
   var _s11=useState(false); var rewardReady=_s11[0]; var setRewardReady=_s11[1];
   var _s12=useState(true); var isDark=_s12[0]; var setIsDark=_s12[1];
   var _s13=useState(0); var lastBazi=_s13[0]; var setLastBazi=_s13[1];
+  var _s14=useState(Date.now()); var nowTick=_s14[0]; var setNowTick=_s14[1];
   var _s15=useState(false); var disclaimerVisible=_s15[0]; var setDisclaimerVisible=_s15[1];
   var interRef=useRef(null); var rewardRef=useRef(null); var appOpenRef=useRef(null); var lastRaw=useRef(0); var magF=useRef({x:0,y:0,z:0});
   var appOpenLoadedAt=useRef(0);
@@ -201,7 +204,7 @@ function DisclaimerModal({visible, onAccept}){
           else { magF.current.x=magF.current.x*0.5+(d.x||0)*0.5; magF.current.y=magF.current.y*0.5+(d.y||0)*0.5; }
           var x=magF.current.x; var y=magF.current.y;
           setMagDebug(daily.caiDir+" "+daily.xiDir);
-          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360; angle=(angle+180)%360;
+          var angle=Math.atan2(y,x)*180/Math.PI; angle=(angle+360)%360;
           var diff=angle-lastRaw.current; if(diff>180) diff-=360; if(diff<-180) diff+=360;
           lastRaw.current=(lastRaw.current+diff*0.4+360)%360;
           setHeading(lastRaw.current);
@@ -216,6 +219,8 @@ function DisclaimerModal({visible, onAccept}){
   },[]);
 
   useEffect(function(){ var t=setInterval(function(){ var d=heading-smooth; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2) setSmooth(function(v){return (v+d*0.3+360)%360;}); },33); return function(){ clearInterval(t); }; },[heading,smooth]);
+
+  useEffect(function(){ var t2=setInterval(function(){ setNowTick(Date.now()); },1000); return function(){ clearInterval(t2); }; },[]);
 
   useEffect(function(){ setTimeout(async function(){
     try{
@@ -243,8 +248,9 @@ function DisclaimerModal({visible, onAccept}){
       if(state==='active'){
         try{
           var ad=appOpenRef.current;
-          if(ad && Date.now()-appOpenLoadedAt.current < 3600000){
+          if(ad && Date.now()-appOpenLoadedAt.current < 3600000 && Date.now()-appOpenLoadedAt.current > 5000){
             ad.show();
+            appOpenLoadedAt.current=0;
           }
         }catch(e){}
       }
@@ -273,7 +279,7 @@ function DisclaimerModal({visible, onAccept}){
 
   var goTab=function(t){
     if(t!==tab){
-      if(Date.now()-lastInter>120000 && interRef.current && interReady){
+      if(Date.now()-lastInter>180000 && interRef.current && interReady){
         try{
           interRef.current.show();
           setLastInter(Date.now());
@@ -284,7 +290,43 @@ function DisclaimerModal({visible, onAccept}){
     setTab(t);
   };
 
-  var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  if(tab==='finance'){
+  var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };  var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
+  var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"];
+  var currentDir=dirs[Math.round(smooth/45)%8];
+  var fly=FLY_2026[currentDir]||FLY_2026["正北"];
+
+  var showReward=function(cb){
+    if(!rewardRef.current ||!rewardReady){ Alert.alert("提示","廣告準備中，請稍後再試"); return; }
+    try{
+      var earned=false;
+      var u1=rewardRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD,function(){ earned=true; });
+      var u2=rewardRef.current.addAdEventListener(AdEventType.CLOSED,function(){
+        try{ u1(); u2(); }catch(e){}
+        try{ rewardRef.current.load(); setRewardReady(false); }catch(e){}
+        if(earned){
+          var now=Date.now(); setLastInter(now); setLastBazi(now); AsyncStorage.setItem('bazi_unlock_v1', String(now)); cb();
+        } else { Alert.alert("提示","要睇完廣告先解鎖到，中途按返回係唔會解鎖㗎"); }
+      });
+      rewardRef.current.show();
+    }catch(err){ Alert.alert("提示","廣告失敗，稍後再試"); }
+  };
+
+  var goTab=function(t){
+    if(t!==tab){
+      if(Date.now()-lastInter>180000 && interRef.current && interReady){
+        try{
+          interRef.current.show();
+          setLastInter(Date.now());
+          setInterReady(false);
+        }catch(e){}
+      }
+    }
+    setTab(t);
+  };
+
+  var toggleTheme = async function(){ var nd =!isDark; setIsDark(nd); await AsyncStorage.setItem('theme_v1', nd?'dark':'light'); };
+
+  if(tab==='finance'){
     var list = Object.entries(FLY_2026).sort(function(a,b){return b[1].cai-a[1].cai;});
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
@@ -321,10 +363,11 @@ function DisclaimerModal({visible, onAccept}){
   }
 
   if(tab==='bazi'){
-    var leftMs = 30*60*1000 - (Date.now()-lastBazi);
-    var isBaziFree = leftMs > 0;
-    var leftMin = Math.floor(leftMs/60000);
-    var leftSec = Math.floor((leftMs%60000)/1000);
+    var leftMs = 30*60*1000 - (nowTick - lastBazi);
+    var isBaziFree = lastBazi===0 || leftMs > 0;
+    var showLeft = leftMs > 0? leftMs : 0;
+    var leftMin = Math.floor(showLeft/60000);
+    var leftSec = Math.floor((showLeft%60000)/1000);
     var leftStr = leftMin+"分"+(leftSec<10?"0":"")+leftSec+"秒";
     return (
       <View style={[s.container,{backgroundColor:th.bg}]}>
@@ -350,7 +393,7 @@ function DisclaimerModal({visible, onAccept}){
               if(!baziInput){ Alert.alert("提示","請輸入 YYYY-MM-DD"); return; }
               if(isBaziFree){
                 var r=calcBazi(baziInput,baziHour);
-                if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); AsyncStorage.setItem('bazi_v1',baziInput); }
+                if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); } else { setBaziRes(r); setLastBazi(Date.now()); AsyncStorage.setItem('bazi_v1',baziInput); AsyncStorage.setItem('bazi_unlock_v1', String(Date.now())); }
               } else {
                 showReward(function(){
                   var r2=calcBazi(baziInput,baziHour);
@@ -365,9 +408,7 @@ function DisclaimerModal({visible, onAccept}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-  }
-
-  return (
+    }  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
