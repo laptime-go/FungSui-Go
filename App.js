@@ -152,7 +152,7 @@ function NativeBox({ready,isDark}){
 }
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
-                                                                     }export default function App(){
+}export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -180,8 +180,8 @@ function TopBanner({ready}){
     var mSub=null; var aSub=null; var first=true;
     (async function(){
       try{
-        try{ await Magnetometer.setUpdateIntervalAsync(100); }catch(e){ try{ await Magnetometer.setUpdateInterval(100); }}catch(err){} }
-        try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ try{ await Accelerometer.setUpdateInterval(200); }}catch(err){} }
+        try{ await Magnetometer.setUpdateIntervalAsync(100); }catch(e){ try{ await Magnetometer.setUpdateInterval(100); }catch(err){} }
+        try{ await Accelerometer.setUpdateIntervalAsync(200); }catch(e){ try{ await Accelerometer.setUpdateInterval(200); }catch(err){} }
         aSub=Accelerometer.addListener(function(){});
         mSub=Magnetometer.addListener(function(d){
           if(!d) return;
@@ -211,16 +211,16 @@ function TopBanner({ready}){
         const inter = InterstitialAd.createForAdRequest(INTER_ID);
         interRef.current=inter; inter.load();
         inter.addAdEventListener(AdEventType.LOADED,function(){setInterReady(true);});
-        inter.addAdEventListener(AdEventType.CLOSED,function(){ setInterReady(false); try{ inter.load(); }}catch(e){} });
+        inter.addAdEventListener(AdEventType.CLOSED,function(){ setInterReady(false); try{ inter.load(); }catch(e){} });
         const reward = RewardedAd.createForAdRequest(REWARD_ID);
         rewardRef.current=reward; reward.load();
         reward.addAdEventListener(RewardedAdEventType.LOADED,function(){setRewardReady(true);});
-        reward.addAdEventListener(AdEventType.CLOSED,function(){ setRewardReady(false); try{ reward.load(); }}catch(e){} });
+        reward.addAdEventListener(AdEventType.CLOSED,function(){ setRewardReady(false); try{ reward.load(); }catch(e){} });
         const appOpenAd = AppOpenAd.createForAdRequest(OPEN_ID);
         appOpenRef.current=appOpenAd;
         appOpenAd.addAdEventListener(AdEventType.LOADED,function(){ appOpenLoaded.current=true; });
-        appOpenAd.addAdEventListener(AdEventType.CLOSED,function(){ appOpenLoaded.current=false; try{ appOpenAd.load(); }}catch(e){} });
-        appOpenAd.addAdEventListener(AdEventType.ERROR,function(){ appOpenLoaded.current=false; try{ appOpenAd.load(); }}catch(e){} });
+        appOpenAd.addAdEventListener(AdEventType.CLOSED,function(){ appOpenLoaded.current=false; try{ appOpenAd.load(); }catch(e){} });
+        appOpenAd.addAdEventListener(AdEventType.ERROR,function(){ appOpenLoaded.current=false; try{ appOpenAd.load(); }catch(e){} });
         appOpenAd.load();
         appStateSub=AppState.addEventListener('change', function(next){
           if(next==='active' && appOpenLoaded.current && appOpenRef.current){
@@ -364,7 +364,7 @@ function TopBanner({ready}){
         <View style={[s.bottomWrapperSafe,{backgroundColor:th.top,borderColor:th.border}]}><View style={[s.tabBar,{backgroundColor:th.top}]}><TouchableOpacity style={s.tab} onPress={function(){goTab('compass');}}><Text style={[s.tabOff,{color:th.tabOff}]}>羅盤</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('finance');}}><Text style={[s.tabOff,{color:th.tabOff}]}>財位</Text></TouchableOpacity><TouchableOpacity style={[s.tab,s.tabOn,{backgroundColor:isDark?'#1e1e1e':'#fff3c0'}]}><Text style={s.tabOnT}>八字</Text></TouchableOpacity><TouchableOpacity style={s.tab} onPress={function(){goTab('settings');}}><Text style={[s.tabOff,{color:th.tabOff}]}>設定</Text></TouchableOpacity></View></View>
       </View>
     );
-}  return (
+    }  return (
     <View style={[s.container,{backgroundColor:th.bg}]}>
       <StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={th.top} translucent={false} />
       <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
