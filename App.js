@@ -230,7 +230,7 @@ function TopBanner({ready}){
         var bt=await AsyncStorage.getItem('bazi_unlock_v1'); if(bt){ setLastBazi(parseInt(bt,10)||0); }
       }catch(err){}
     })();
-    return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); }catch(err){} };
+    return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); }}catch(err){} };
   },[]);
   useEffect(function(){ var t=setInterval(function(){ var target=lastRaw.current; var cur=smoothRef.current; var d=target-cur; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2){ var nv=(cur+d*0.3+360)%360; smoothRef.current=nv; setSmooth(nv); } },33); return function(){ clearInterval(t); }; },[]);
   useEffect(function(){ var t2=setInterval(function(){ setTick(function(v){return v+1;}); },1000); return function(){ clearInterval(t2); }; },[]);
