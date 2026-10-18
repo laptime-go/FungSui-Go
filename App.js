@@ -43,22 +43,49 @@ const THEME = {
   light: { bg:'#f5f3e8', card:'#ffffff', card2:'#fff8e1', text:'#222', sub:'#8a6d00', top:'#ffffff', border:'#e0d5b0', input:'#f0e6c8', tabOff:'#555' }
 };function calcBazi(dateStr, hourIdx){
   try{
-    var d=new Date(dateStr); if(isNaN(d.getTime())) return null;
+    var parts = (dateStr||"").split("-");
+    if(parts.length!==3) return null;
+    var y=parseInt(parts[0],10), m=parseInt(parts[1],10), day=parseInt(parts[2],10);
+    if(!y||!m||!day||m<1||m>12||day<1||day>31) return null;
+    var d=new Date(y,m-1,day);
+    if(isNaN(d.getTime())) return null;
     var stems=["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
     var branches=["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
     var branchWu={子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"};
-    var y=d.getFullYear(); var m=d.getMonth()+1; var day=d.getDate();
-    var yearStem=stems[(y-4)%10]; var yBranch=branches[(y-4)%12];
-    var mStem=stems[(y*2+m+3)%10]; var mBranch=branches[m%12];
-    var base=new Date(1900,0,1).getTime();
+    var yearForStem = (m<2 || (m===2 && day<4)) ? y-1 : y;
+    var yStemIdx = ((yearForStem-4)%10+10)%10;
+    var yBranchIdx = ((yearForStem-4)%12+12)%12;
+    var yearStem=stems[yStemIdx];
+    var yBranch=branches[yBranchIdx];
+    var jieIdx;
+    if(m===1){ jieIdx = day<5?11:0; }
+    else if(m===2){ jieIdx = day<4?0:1; }
+    else if(m===3){ jieIdx = day<5?1:2; }
+    else if(m===4){ jieIdx = day<5?2:3; }
+    else if(m===5){ jieIdx = day<5?3:4; }
+    else if(m===6){ jieIdx = day<5?4:5; }
+    else if(m===7){ jieIdx = day<7?5:6; }
+    else if(m===8){ jieIdx = day<7?6:7; }
+    else if(m===9){ jieIdx = day<7?7:8; }
+    else if(m===10){ jieIdx = day<8?8:9; }
+    else if(m===11){ jieIdx = day<7?9:10; }
+    else { jieIdx = day<7?10:11; }
+    var mBranchIdx = (jieIdx+2)%12;
+    var mBranch=branches[mBranchIdx];
+    var mStemIdx = (yStemIdx*2+2+jieIdx)%10;
+    var mStem=stems[mStemIdx];
+    var base=new Date(1900,0,31).getTime();
     var diff=Math.floor((d.getTime()-base)/86400000);
-    var dayStem=stems[(diff+9)%10]; var dayBranch=branches[(diff+1)%12];
+    var dayStemIdx=((diff%10)+10)%10;
+    var dayBranchIdx=((10+diff)%12+12)%12;
+    var dayStem=stems[dayStemIdx];
+    var dayBranch=branches[dayBranchIdx];
     var hBranch=""; var hStem="";
-    if(hourIdx!=null && hourIdx>=0){
+    if(hourIdx!=null && hourIdx>=0 && hourIdx<12){
       hBranch=branches[hourIdx];
-      var dayIdx=stems.indexOf(dayStem);
-      var start = dayIdx%2==0 ? dayIdx : (dayIdx+1)%10;
-      hStem=stems[(start+hourIdx)%10];
+      var hBase=(dayStemIdx%5)*2;
+      var hStemIdx=(hBase+hourIdx)%10;
+      hStem=stems[hStemIdx];
     }
     var map={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
     var five={木:0,火:0,土:0,金:0,水:0};
@@ -155,7 +182,7 @@ function NativeBox({ready,isDark}){
 }
 function TopBanner({ready}){
   return (<View style={s.topAdSmall}>{ready && <BannerAd unitId={BANNER_ID} size={BannerAdSize.BANNER} />}</View>);
-    }export default function App(){
+}export default function App(){
   var _s1=useState('compass'); var tab=_s1[0]; var setTab=_s1[1];
   var _s2=useState(0); var heading=_s2[0]; var setHeading=_s2[1];
   var _s3=useState(0); var smooth=_s3[0]; var setSmooth=_s3[1];
@@ -203,7 +230,7 @@ function TopBanner({ready}){
         var bt=await AsyncStorage.getItem('bazi_unlock_v1'); if(bt){ setLastBazi(parseInt(bt,10)||0); }
       }catch(err){}
     })();
-    return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); }}catch(err){} };
+    return function(){ try{ if(mSub){ mSub.remove(); } if(aSub){ aSub.remove(); }catch(err){} };
   },[]);
   useEffect(function(){ var t=setInterval(function(){ var target=lastRaw.current; var cur=smoothRef.current; var d=target-cur; if(d>180)d-=360; if(d<-180)d+=360; if(Math.abs(d)>0.2){ var nv=(cur+d*0.3+360)%360; smoothRef.current=nv; setSmooth(nv); } },33); return function(){ clearInterval(t); }; },[]);
   useEffect(function(){ var t2=setInterval(function(){ setTick(function(v){return v+1;}); },1000); return function(){ clearInterval(t2); }; },[]);
@@ -239,14 +266,13 @@ function TopBanner({ready}){
     },1000);
     return function(){ try{ if(appStateSub) appStateSub.remove(); }catch(e){} };
   },[]);
-  useEffect(function(){
-    if(tab!=='bazi') return;
+  function analyzeBazi(){
     if(!baziInput){ setBaziRes(null); return; }
     var r=calcBazi(baziInput,baziHour);
     if(!r){ setBaziRes({error:"格式 YYYY-MM-DD"}); return; }
     setBaziRes(r);
     AsyncStorage.setItem('bazi_v1',baziInput);
-  },[baziInput,baziHour,tab]);
+  }
   var currentMountain=useMemo(function(){ return getMountainByDeg(smooth); },[smooth]);
   var dirs=["正北","東北","正東","東南","正南","西南","正西","西北"]; var currentDir=dirs[Math.floor((smooth+22.5)/45)%8]; var fly=FLY_2026[currentDir]||FLY_2026["正北"];
   var showReward=function(cb){
@@ -306,7 +332,7 @@ function TopBanner({ready}){
         <View style={{height: statusH, backgroundColor: th.top, width:'100%'}} />
         <TopBanner ready={adsReady} />
         <ScrollView style={{width:'100%'}} contentContainerStyle={{padding:16,paddingTop:10,paddingBottom:130}}>
-          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.0 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{magDebug} {Math.round(smooth)}°</Text>
+          <Text style={[s.bigTitle,{color:isDark?'#FFD700':'#8a6d00'}]}>設定 v1.0 {isDark?'🌙':'☀️'}</Text><Text style={[s.bigSub,{color:th.sub}]}>{Math.round(smooth)}°</Text>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>外觀模式</Text><Text style={[s.setD,{color:th.tabOff}]}>{isDark?'暗色模式':'日間模式'}</Text><TouchableOpacity style={s.goldBtn} onPress={toggleTheme}><Text style={s.goldBtnText}>{isDark?'切換到 日間☀️':'切換到 暗夜🌙'}</Text></TouchableOpacity></View>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>羅盤 {Math.round(smooth)}°</Text><Text style={[s.setD,{color:th.tabOff}]}>{currentMountain.m}山 {currentMountain.gua} {currentMountain.wu} {currentMountain.deg}°</Text><TouchableOpacity style={s.goldBtn} onPress={function(){Alert.alert('校準','請遠離磁性物品，將手機平放並畫8字以校準');}}><Text style={s.goldBtnText}>校準</Text></TouchableOpacity></View>
           <View style={[s.setCard,{backgroundColor:th.card2,borderColor:th.border}]}><Text style={[s.setT,{color:th.text}]}>聯絡我們</Text><Text style={[s.setD,{color:th.tabOff}]}>{CONTACT_EMAIL}</Text><TouchableOpacity style={s.goldBtn} onPress={showContact}><Text style={s.goldBtnText}>聯絡我們</Text></TouchableOpacity></View>
@@ -341,10 +367,11 @@ function TopBanner({ready}){
                 );
               })}
             </View>
+            <TouchableOpacity style={s.goldBtn} onPress={analyzeBazi}><Text style={s.goldBtnText}>分析八字</Text></TouchableOpacity>
             {baziRes && !baziRes.error && (
               <View style={[s.unlockedBox,{backgroundColor:isDark?'#252525':'#fff3c0',marginTop:14}]}>
                 <Text style={[s.unlockedText,{color:th.text}]}>
-                  {baziRes.full+" 喜"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col}
+                  {baziRes.full+" 用神"+baziRes.xi+" 宜"+baziRes.dir+" "+baziRes.col}
                   {isDetailFree ? "\n\n7日詳細運程：\n"+get7DayDetail(baziRes) : "\n\n免費八字已顯示，觀看廣告後可查看7日詳細運程"}
                 </Text>
               </View>
@@ -355,7 +382,7 @@ function TopBanner({ready}){
               </View>
             )}
             <TouchableOpacity style={s.goldBtn} onPress={function(){
-              if(!baziRes || baziRes.error){ Alert.alert("提示","請先選擇日期及時辰"); return; }
+              if(!baziRes || baziRes.error){ Alert.alert("提示","請先按分析八字"); return; }
               if(isDetailFree){ Alert.alert("提示","詳細版剩餘 "+leftStr); return; }
               showReward(function(){
                 var now=Date.now(); setLastBazi(now); setLastInter(now); AsyncStorage.setItem('bazi_unlock_v1', String(now));
