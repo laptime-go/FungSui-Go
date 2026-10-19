@@ -285,7 +285,7 @@ function TopBanner({ready}){
         var bt=await AsyncStorage.getItem('bazi_unlock_v1'); if(bt){ setLastBazi(parseInt(bt,10)||0); }
       }catch(err){}
     })();
-    return function(){ cancelled=true; try{ if(mSub){ mSub.remove(); }catch(err){} };
+    return function(){ cancelled=true; try{ if(mSub){ mSub.remove(); }}catch(err){} };
   },[]);
   useEffect(function(){
     if(tab!=='compass') return;
